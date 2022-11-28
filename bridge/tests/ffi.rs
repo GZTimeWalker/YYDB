@@ -3,5 +3,9 @@ use yengine_bridge::*;
 #[test]
 #[cfg(test)]
 fn test_ffi() {
-    ffi::hello_world();
+    let a = 1;
+    let b = 2;
+
+    println!("{} + {} = {} -- from rust", a, b, a + b);
+    ffi::do_test();
 }

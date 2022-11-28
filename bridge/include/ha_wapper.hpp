@@ -3,4 +3,4 @@
 #include <cstdio>
 // #include "mysql/sql/handler.h"
 
-void hello_world();
+void do_test();

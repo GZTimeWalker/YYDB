@@ -9,6 +9,6 @@ pub mod ffi {
     unsafe extern "C++" {
         include!("yengine_bridge/include/ha_wapper.hpp");
 
-        pub fn hello_world();
+        pub fn do_test();
     }
 }
