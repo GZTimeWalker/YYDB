@@ -7,34 +7,6 @@
     {
       "type": "lldb",
       "request": "launch",
-      "name": "Debug unit tests in library 'yengine_core'",
-      "cargo": {
-        "args": ["test", "--no-run", "--lib", "--package=yengine_core"],
-        "filter": {
-          "name": "yengine_core",
-          "kind": "lib"
-        }
-      },
-      "args": ["--nocapture"],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
-      "name": "Debug unit tests in library 'yengine_bridge'",
-      "cargo": {
-        "args": ["test", "--no-run", "--lib", "--package=yengine_bridge"],
-        "filter": {
-          "name": "yengine_bridge",
-          "kind": "lib"
-        }
-      },
-      "args": ["--nocapture"],
-      "cwd": "${workspaceFolder}"
-    },
-    {
-      "type": "lldb",
-      "request": "launch",
       "name": "Debug integration test 'ffi'",
       "cargo": {
         "args": ["test", "--no-run", "--test=ffi", "--package=yengine_bridge"],

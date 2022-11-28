@@ -1,11 +1,14 @@
-FROM docker/dev-environments-default:stable-1
+FROM ubuntu:22.10
 
-RUN sed -i 's/deb.debian.org/mirrors.matrix.moe/g' /etc/apt/sources.list && \
+RUN sed -i 's@//.*archive.ubuntu.com@//mirrors.matrix.moe@g' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/mirrors.matrix.moe/g' /etc/apt/sources.list && \
+    sed -i 's/ports.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list && \
+    apt update && apt install ca-certificates -y && \
     sed -i 's/http:/https:/g' /etc/apt/sources.list
 
 RUN apt update && apt upgrade -y && apt install -y \
     build-essential nano wget curl git vim cmake bat \
-    zsh-syntax-highlighting zsh-autosuggestions
+    zsh zsh-syntax-highlighting zsh-autosuggestions
 
 # set up rust env
 ENV RUSTUP_HOME=/usr/local/rustup \

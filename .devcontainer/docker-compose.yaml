@@ -1,7 +1,7 @@
 services:
   yengine:
     build:
-      context: .
+      context: ..
       dockerfile: .devcontainer/Dockerfile
     container_name: yengine-dev
     entrypoint:
@@ -9,7 +9,7 @@ services:
       - infinity
     init: true
     volumes:
-      - .:/Y-Engine
+      - ..:/Y-Engine
       - type: bind
         source: /var/run/docker.sock
         target: /var/run/docker.sock

@@ -1,6 +1,6 @@
 {
   "name": "Y-Engine",
-  "dockerComposeFile": "../compose-dev.yaml",
+  "dockerComposeFile": "docker-compose.yaml",
   "service": "yengine",
   "workspaceFolder": "/Y-Engine",
   "extensions": ["rust-lang.rust-analyzer", "serayuzgur.crates", "ms-vscode.cpptools", "vadimcn.vscode-lldb"]
