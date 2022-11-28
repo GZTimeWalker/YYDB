@@ -1,0 +1,7 @@
+{
+  "name": "Y-Engine",
+  "dockerComposeFile": "../compose-dev.yaml",
+  "service": "yengine",
+  "workspaceFolder": "/Y-Engine",
+  "extensions": ["rust-lang.rust-analyzer", "serayuzgur.crates"]
+}

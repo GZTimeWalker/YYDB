@@ -1,0 +1,5 @@
+[source.crates-io]
+replace-with = 'matrix'
+
+[source.matrix]
+registry = "https://mirrors.matrix.moe/git/crates.io-index.git"

@@ -1,0 +1,27 @@
+services:
+  yengine:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    container_name: yengine-dev
+    entrypoint:
+      - sleep
+      - infinity
+    init: true
+    volumes:
+      - .:/Y-Engine
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+    networks:
+      - yengine-dev
+    cap_add:
+      - SYS_PTRACE
+
+networks:
+  yengine-dev:
+    attachable: true
+    name: yengine-dev
+    ipam:
+      config:
+        - subnet: 192.168.124.0/26
