@@ -99,6 +99,11 @@
 #include "sql/sql_plugin.h"
 #include "typelib.h"
 
+void do_test() {
+  int a = 1, b = 2;
+  printf("%d + %d = %d  -- from cpp\n\n", a, b, a + b);
+}
+
 static handler *yengine_create_handler(handlerton *hton, TABLE_SHARE *table,
                                        bool partitioned, MEM_ROOT *mem_root);
 
