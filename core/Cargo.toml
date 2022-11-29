@@ -12,5 +12,10 @@ description = "Y-Engine Rust Core"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+name = "yengine"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
 [dependencies]
 bridge = { package = "yengine_bridge", path = "../bridge" }
