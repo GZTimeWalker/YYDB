@@ -1,4 +1,4 @@
 /target
 /Cargo.lock
-**/mysql
 .vscode/settings.json
+**/.DS_Store
