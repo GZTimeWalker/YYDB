@@ -1,7 +1,7 @@
 FROM ubuntu:22.10
 
-RUN sed -i 's@//.*archive.ubuntu.com@//mirrors.matrix.moe@g' /etc/apt/sources.list && \
-    sed -i 's/security.ubuntu.com/mirrors.matrix.moe/g' /etc/apt/sources.list && \
+RUN sed -i 's@//.*archive.ubuntu.com@//mirrors.ustc.edu.cn@g' /etc/apt/sources.list && \
+    sed -i 's/security.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list && \
     sed -i 's/ports.ubuntu.com/mirrors.ustc.edu.cn/g' /etc/apt/sources.list && \
     apt update && apt install ca-certificates -y && \
     sed -i 's/http:/https:/g' /etc/apt/sources.list
