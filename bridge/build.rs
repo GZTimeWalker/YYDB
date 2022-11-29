@@ -8,5 +8,5 @@ fn main() {
 
     println!("cargo:rerun-if-changed=src/main.rs");
     println!("cargo:rerun-if-changed=src/handler/ha_wapper.cc");
-    println!("cargo:rerun-if-changed=include/ha_wapper.hpp");
+    println!("cargo:rerun-if-changed=include/ha_wapper.h");
 }

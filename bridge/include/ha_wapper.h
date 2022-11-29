@@ -37,6 +37,7 @@
    @see
   /sql/handler.h and /storage/yengine/ha_yengine.cc
 */
+#pragma once
 
 #include <sys/types.h>
 

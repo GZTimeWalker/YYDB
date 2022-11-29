@@ -92,7 +92,8 @@
     -Brian
 */
 
-#include "yengine_bridge/include/ha_wapper.hpp"
+#include "yengine_bridge/include/ha_wapper.h"
+#include "yengine_bridge/src/bridge.rs.h"
 
 #include "my_dbug.h"
 #include "mysql/plugin.h"
@@ -101,7 +102,7 @@
 
 void do_test() {
   int a = 1, b = 2;
-  printf("%d + %d = %d  -- from cpp\n\n", a, b, a + b);
+  printf("%d + %d = %d -- from cpp\n\n", a, b, a + b);
 }
 
 static handler *yengine_create_handler(handlerton *hton, TABLE_SHARE *table,
