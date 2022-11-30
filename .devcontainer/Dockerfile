@@ -5,7 +5,9 @@ RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list && \
 
 RUN apt update && apt upgrade -y && apt install --no-install-recommends -y \
     build-essential nano wget curl git vim cmake bat \
-    zsh-syntax-highlighting zsh-autosuggestions fd-find
+    zsh-syntax-highlighting zsh-autosuggestions fd-find \
+    bzip2 openssl perl xz-utils zstd \
+    libssl-dev zlib1g-dev libncurses-dev pkg-config libudev-dev
 
 # set up rust env
 ENV RUSTUP_HOME=/usr/local/rustup \
@@ -41,7 +43,7 @@ RUN useradd -m -s /bin/zsh -G sudo -u 1024 -U dev && \
     echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
     chsh -s /bin/zsh root && \
     cp /root/.zshrc /home/dev/.zshrc && \
-    mkdir /Y-Engine && ln -s /Y-Engine /com.docker.devenvironments.code
+    mkdir /Y-Engine
 
 USER dev
 

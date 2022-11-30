@@ -19,6 +19,6 @@ cargo build --release
 
 cp target/release/libyengine.a $DEST
 
-cp CMakelists.txt $DEST
+cp scripts/CMakeLists.txt $DEST
 
-echo "Done, please run 'cmake ..' in $MYSQL_SOURCE_DIR/bld"
+echo "Done, please run 'scripts/cmake.sh' to configure MySQL with YEngine"
