@@ -12,4 +12,4 @@ g++ $MYSQL_ARGS -shared -o target/release/libyengine.so \
 $GCC_ARGS \
 $INCLUDES \
 src/handler/ha_wapper.cc \
-/Y-Engine/target/release/libyengine.a
+target/release/libyengine.a
