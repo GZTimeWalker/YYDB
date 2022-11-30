@@ -9,18 +9,26 @@ fn main() {
 
     let mut build = cc::Build::new();
 
-    build
+    let mysql_src = std::env::var("MYSQL_SOURCE_DIR");
+
+    if let Ok(src) = mysql_src {
+        build
+        .cpp(true)
+        .flag_if_supported("-std=c++17")
+        .opt_level(3)
+        .include(format!("{}/include", src));
+    } else {
+        build
         .cpp(true)
         .flag_if_supported("-std=c++17")
         .opt_level(3)
         .include("include")
         .include("include/mysql")
         .include("include/mysql/include");
+    }
 
     if profile == "debug" {
         build.file("src/handler/ha_wapper.cc").compile("ha_wapper");
-    } else {
-        println!("cargo:warning={:?}", build.get_compiler());
     }
 
     println!("cargo:rerun-if-changed=src/bridge.rs");

@@ -3,5 +3,11 @@
   "dockerComposeFile": "docker-compose.yaml",
   "service": "yengine",
   "workspaceFolder": "/Y-Engine",
-  "extensions": ["rust-lang.rust-analyzer", "serayuzgur.crates", "ms-vscode.cpptools", "vadimcn.vscode-lldb"]
+  "extensions": [
+    "rust-lang.rust-analyzer",
+    "serayuzgur.crates",
+    "ms-vscode.cpptools",
+    "vadimcn.vscode-lldb",
+    "josetr.cmake-language-support-vscode"
+  ]
 }
