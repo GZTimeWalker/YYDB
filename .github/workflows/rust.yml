@@ -17,6 +17,13 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Show tool versions
+      run: |
+        ldd --version
+        strings /lib/x86_64-linux-gnu/libc.so.6 | grep "GLIBC"
+        rustc --version
+        cargo --version
+
     - name: Run tests
       run: cargo test -- --nocapture
 
