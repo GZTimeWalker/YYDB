@@ -3,9 +3,10 @@ FROM docker/dev-environments-default:stable-1
 RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list && \
     sed -i 's/http:/https:/g' /etc/apt/sources.list
 
-RUN apt update && apt upgrade -y && apt install -y \
+RUN apt update && apt upgrade -y && apt install --no-install-recommends -y \
     build-essential nano wget curl git vim cmake bat \
-    zsh-syntax-highlighting zsh-autosuggestions
+    zsh-syntax-highlighting zsh-autosuggestions fd-find \
+    libssl-dev zlib1g-dev libncurses-dev pkg-config libudev-dev
 
 # set up rust env
 ENV RUSTUP_HOME=/usr/local/rustup \
@@ -35,7 +36,6 @@ RUN set -eux; \
     rustc --version;
 
 COPY .devcontainer/config.toml $CARGO_HOME/config.toml
-
 COPY .devcontainer/.zshrc /root/.zshrc
 
 RUN useradd -m -s /bin/zsh -G sudo -u 1024 -U dev && \

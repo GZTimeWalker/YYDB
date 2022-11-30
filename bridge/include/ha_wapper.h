@@ -47,6 +47,8 @@
 #include "sql/handler.h" /* handler */
 #include "thr_lock.h"    /* THR_LOCK, THR_LOCK_DATA */
 
+#define MYSQL_DYNAMIC_PLUGIN
+
 void do_test();
 
 /** @brief

@@ -100,11 +100,6 @@
 #include "sql/sql_plugin.h"
 #include "typelib.h"
 
-void do_test() {
-  int a = 1, b = 2;
-  printf("%d + %d = %d -- from cpp\n\n", a, b, a + b);
-}
-
 static handler *yengine_create_handler(handlerton *hton, TABLE_SHARE *table,
                                        bool partitioned, MEM_ROOT *mem_root);
 
@@ -891,9 +886,14 @@ static SHOW_VAR func_status[] = {
 mysql_declare_plugin(yengine){
     MYSQL_STORAGE_ENGINE_PLUGIN,
     &yengine_storage_engine,
-    "YENGINE",
-    PLUGIN_AUTHOR_ORACLE,
-    "Example storage engine",
+    "yengine",
+
+    "GZTime <Time.GZ@outlook.com>,"
+    "Zhengty <1051655293@qq.com>,"
+    "cychester <chenych89@mail2.sysu.edu.cn>,"
+    "chengy-sysu <939416532@qq.com>",
+
+    "Y-Engine storage engine",
     PLUGIN_LICENSE_GPL,
     yengine_init_func, /* Plugin Init */
     nullptr,           /* Plugin check uninstall */
@@ -904,3 +904,9 @@ mysql_declare_plugin(yengine){
     nullptr,                  /* config options */
     0,                        /* flags */
 } mysql_declare_plugin_end;
+
+void do_test() {
+  int a = 1, b = 2;
+  printf("%d + %d = %d -- from cpp\n"
+    "Plugin Version: %d\n\n", a, b, a + b, _mysql_plugin_interface_version_);
+}
