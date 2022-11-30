@@ -1,6 +1,6 @@
 FROM docker/dev-environments-default:stable-1
 
-RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list && \
+RUN sed -i 's/deb.debian.org/mirrors.matrix.moe/g' /etc/apt/sources.list && \
     sed -i 's/http:/https:/g' /etc/apt/sources.list
 
 RUN apt update && apt upgrade -y && apt install --no-install-recommends -y \
@@ -34,6 +34,8 @@ RUN set -eux; \
     rustup --version; \
     cargo --version; \
     rustc --version;
+
+ENV LIBMYSQL_ENABLE_CLEARTEXT_PLUGIN Y
 
 COPY .devcontainer/config.toml $CARGO_HOME/config.toml
 COPY .devcontainer/.zshrc /root/.zshrc

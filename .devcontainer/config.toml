@@ -1,5 +1,8 @@
 [source.crates-io]
-replace-with = 'ustc'
+replace-with = 'matrix'
 
 [source.ustc]
 registry = "https://mirrors.ustc.edu.cn/crates.io-index"
+
+[source.matrix]
+registry = "https://mirrors.matrix.moe/git/crates.io-index.git"

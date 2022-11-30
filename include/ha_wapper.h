@@ -38,6 +38,7 @@
   /sql/handler.h and /storage/yengine/ha_yengine.cc
 */
 #pragma once
+#define MYSQL_DYNAMIC_PLUGIN
 
 #include <sys/types.h>
 
@@ -46,8 +47,6 @@
 #include "my_inttypes.h"
 #include "sql/handler.h" /* handler */
 #include "thr_lock.h"    /* THR_LOCK, THR_LOCK_DATA */
-
-#define MYSQL_DYNAMIC_PLUGIN
 
 void do_test();
 

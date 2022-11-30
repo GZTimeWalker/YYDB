@@ -7,7 +7,7 @@ pub mod ffi {
 
     // C++ types and signatures exposed to Rust.
     unsafe extern "C++" {
-        include!("yengine_bridge/include/ha_wapper.h");
+        include!("yengine/include/ha_wapper.h");
 
         pub fn do_test();
     }

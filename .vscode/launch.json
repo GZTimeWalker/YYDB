@@ -9,7 +9,7 @@
       "request": "launch",
       "name": "Debug integration test 'ffi'",
       "cargo": {
-        "args": ["test", "--no-run", "--test=ffi", "--package=yengine_bridge"],
+        "args": ["test", "--no-run", "--test=ffi"],
         "filter": {
           "name": "ffi",
           "kind": "test"

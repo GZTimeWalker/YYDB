@@ -92,8 +92,8 @@
     -Brian
 */
 
-#include "yengine_bridge/include/ha_wapper.h"
-#include "yengine_bridge/src/bridge.rs.h"
+#include "yengine/include/ha_wapper.h"
+#include "yengine/src/bridge.rs.h"
 
 #include "my_dbug.h"
 #include "mysql/plugin.h"
@@ -907,6 +907,14 @@ mysql_declare_plugin(yengine){
 
 void do_test() {
   int a = 1, b = 2;
-  printf("%d + %d = %d -- from cpp\n"
-    "Plugin Version: %d\n\n", a, b, a + b, _mysql_plugin_interface_version_);
+  printf(
+    "Plugin Version: %d\n"
+    "Plugin Size: %d\n"
+    "%d + %d = %d -- from cpp\n"
+    ,
+
+    _mysql_plugin_interface_version_,
+    _mysql_sizeof_struct_st_plugin_,
+    a, b, a + b
+  );
 }
