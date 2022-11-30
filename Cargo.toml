@@ -14,14 +14,11 @@ description = "Y-Engine Rust Core for MySQL"
 [lib]
 name = "yengine"
 path = "src/lib.rs"
-crate-type = ["cdylib", "rlib"]
+crate-type = ["rlib", "staticlib"]
 
 [dependencies]
 cxx = "1.0"
 
 [build-dependencies]
 cxx-build = "1.0"
-
-[profile.release-with-symbols]
-inherits = "release"
-debug = true
+cc = "1.0"

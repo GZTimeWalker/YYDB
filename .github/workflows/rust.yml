@@ -28,10 +28,10 @@ jobs:
       run: cargo test -- --nocapture
 
     - name: Build Library
-      run: cargo build --profile=release-with-symbols
+      run: bash ./buildso.sh
 
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3
       with:
         name: yengine
-        path: target/release-with-symbols/libyengine.so
+        path: target/release/libyengine.so

@@ -20,106 +20,106 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-/**
-  @file ha_yengine.cc
+  /**
+    @file ha_yengine.cc
 
-  @brief
-  The ha_yengine engine is a stubbed storage engine for yengine purposes only;
-  it does nothing at this point. Its purpose is to provide a source
-  code illustration of how to begin writing new storage engines; see also
-  /storage/yengine/ha_yengine.h.
+    @brief
+    The ha_yengine engine is a stubbed storage engine for yengine purposes only;
+    it does nothing at this point. Its purpose is to provide a source
+    code illustration of how to begin writing new storage engines; see also
+    /storage/yengine/ha_yengine.h.
 
-  @details
-  ha_yengine will let you create/open/delete tables, but
-  nothing further (for yengine, indexes are not supported nor can data
-  be stored in the table). Use this yengine as a template for
-  implementing the same functionality in your own storage engine. You
-  can enable the yengine storage engine in your build by doing the
-  following during your build process:<br> ./configure
-  --with-yengine-storage-engine
+    @details
+    ha_yengine will let you create/open/delete tables, but
+    nothing further (for yengine, indexes are not supported nor can data
+    be stored in the table). Use this yengine as a template for
+    implementing the same functionality in your own storage engine. You
+    can enable the yengine storage engine in your build by doing the
+    following during your build process:<br> ./configure
+    --with-yengine-storage-engine
 
-  Once this is done, MySQL will let you create tables with:<br>
-  CREATE TABLE \<table name\> (...) ENGINE=YENGINE;
+    Once this is done, MySQL will let you create tables with:<br>
+    CREATE TABLE \<table name\> (...) ENGINE=YENGINE;
 
-  The yengine storage engine is set up to use table locks. It
-  implements an yengine "SHARE" that is inserted into a hash by table
-  name. You can use this to store information of state that any
-  yengine handler object will be able to see when it is using that
-  table.
+    The yengine storage engine is set up to use table locks. It
+    implements an yengine "SHARE" that is inserted into a hash by table
+    name. You can use this to store information of state that any
+    yengine handler object will be able to see when it is using that
+    table.
 
-  Please read the object definition in ha_yengine.h before reading the rest
-  of this file.
+    Please read the object definition in ha_yengine.h before reading the rest
+    of this file.
 
-  @note
-  When you create an YENGINE table, the MySQL Server creates a table .frm
-  (format) file in the database directory, using the table name as the file
-  name as is customary with MySQL. No other files are created. To get an idea
-  of what occurs, here is an yengine select that would do a scan of an entire
-  table:
+    @note
+    When you create an YENGINE table, the MySQL Server creates a table .frm
+    (format) file in the database directory, using the table name as the file
+    name as is customary with MySQL. No other files are created. To get an idea
+    of what occurs, here is an yengine select that would do a scan of an entire
+    table:
 
-  @code
-  ha_yengine::store_lock
-  ha_yengine::external_lock
-  ha_yengine::info
-  ha_yengine::rnd_init
-  ha_yengine::extra
-  ha_yengine::rnd_next
-  ha_yengine::rnd_next
-  ha_yengine::rnd_next
-  ha_yengine::rnd_next
-  ha_yengine::rnd_next
-  ha_yengine::rnd_next
-  ha_yengine::rnd_next
-  ha_yengine::rnd_next
-  ha_yengine::rnd_next
-  ha_yengine::extra
-  ha_yengine::external_lock
-  ha_yengine::extra
-  ENUM HA_EXTRA_RESET        Reset database to after open
-  @endcode
+    @code
+    ha_yengine::store_lock
+    ha_yengine::external_lock
+    ha_yengine::info
+    ha_yengine::rnd_init
+    ha_yengine::extra
+    ha_yengine::rnd_next
+    ha_yengine::rnd_next
+    ha_yengine::rnd_next
+    ha_yengine::rnd_next
+    ha_yengine::rnd_next
+    ha_yengine::rnd_next
+    ha_yengine::rnd_next
+    ha_yengine::rnd_next
+    ha_yengine::rnd_next
+    ha_yengine::extra
+    ha_yengine::external_lock
+    ha_yengine::extra
+    ENUM HA_EXTRA_RESET        Reset database to after open
+    @endcode
 
-  Here you see that the yengine storage engine has 9 rows called before
-  rnd_next signals that it has reached the end of its data. Also note that
-  the table in question was already opened; had it not been open, a call to
-  ha_yengine::open() would also have been necessary. Calls to
-  ha_yengine::extra() are hints as to what will be occurring to the request.
+    Here you see that the yengine storage engine has 9 rows called before
+    rnd_next signals that it has reached the end of its data. Also note that
+    the table in question was already opened; had it not been open, a call to
+    ha_yengine::open() would also have been necessary. Calls to
+    ha_yengine::extra() are hints as to what will be occurring to the request.
 
-  A Longer Example can be found called the "Skeleton Engine" which can be
-  found on TangentOrg. It has both an engine and a full build environment
-  for building a pluggable storage engine.
+    A Longer Example can be found called the "Skeleton Engine" which can be
+    found on TangentOrg. It has both an engine and a full build environment
+    for building a pluggable storage engine.
 
-  Happy coding!<br>
-    -Brian
-*/
+    Happy coding!<br>
+      -Brian
+  */
 
-#include "yengine/include/ha_wapper.h"
-#include "yengine/src/bridge.rs.h"
-
+#include "ha_wapper.h"
 #include "my_dbug.h"
 #include "mysql/plugin.h"
 #include "sql/sql_plugin.h"
 #include "typelib.h"
 
-static handler *yengine_create_handler(handlerton *hton, TABLE_SHARE *table,
-                                       bool partitioned, MEM_ROOT *mem_root);
+static handler* yengine_create_handler(handlerton* hton, TABLE_SHARE* table,
+  bool partitioned, MEM_ROOT* mem_root);
 
-handlerton *yengine_hton;
+handlerton* yengine_hton;
 
 /* Interface to mysqld, to check system tables supported by SE */
-static bool yengine_is_supported_system_table(const char *db,
-                                              const char *table_name,
-                                              bool is_sql_layer_system_table);
+static bool yengine_is_supported_system_table(const char* db,
+  const char* table_name,
+  bool is_sql_layer_system_table);
 
 Example_share::Example_share() { thr_lock_init(&lock); }
 
-static int yengine_init_func(void *p) {
+static int yengine_init_func(void* p) {
   DBUG_TRACE;
 
-  yengine_hton = (handlerton *)p;
+  yengine_hton = (handlerton*)p;
   yengine_hton->state = SHOW_OPTION_YES;
   yengine_hton->create = yengine_create_handler;
   yengine_hton->flags = HTON_CAN_RECREATE;
   yengine_hton->is_supported_system_table = yengine_is_supported_system_table;
+
+  rust_test();
 
   return 0;
 }
@@ -132,30 +132,30 @@ static int yengine_init_func(void *p) {
   they are needed to function.
 */
 
-Example_share *ha_yengine::get_share() {
-  Example_share *tmp_share;
+Example_share* ha_yengine::get_share() {
+  Example_share* tmp_share;
 
   DBUG_TRACE;
 
   lock_shared_ha_data();
-  if (!(tmp_share = static_cast<Example_share *>(get_ha_share_ptr()))) {
+  if(!(tmp_share = static_cast<Example_share*>(get_ha_share_ptr()))) {
     tmp_share = new Example_share;
-    if (!tmp_share) goto err;
+    if(!tmp_share) goto err;
 
-    set_ha_share_ptr(static_cast<Handler_share *>(tmp_share));
+    set_ha_share_ptr(static_cast<Handler_share*>(tmp_share));
   }
 err:
   unlock_shared_ha_data();
   return tmp_share;
 }
 
-static handler *yengine_create_handler(handlerton *hton, TABLE_SHARE *table,
-                                       bool, MEM_ROOT *mem_root) {
+static handler* yengine_create_handler(handlerton* hton, TABLE_SHARE* table,
+  bool, MEM_ROOT* mem_root) {
   return new (mem_root) ha_yengine(hton, table);
 }
 
-ha_yengine::ha_yengine(handlerton *hton, TABLE_SHARE *table_arg)
-    : handler(hton, table_arg) {}
+ha_yengine::ha_yengine(handlerton* hton, TABLE_SHARE* table_arg)
+  : handler(hton, table_arg) {}
 
 /*
   List of all system tables specific to the SE.
@@ -167,7 +167,7 @@ ha_yengine::ha_yengine(handlerton *hton, TABLE_SHARE *table_arg)
   This array is optional, so every SE need not implement it.
 */
 static st_handler_tablename ha_yengine_system_tables[] = {
-    {(const char *)nullptr, (const char *)nullptr}};
+    {(const char*)nullptr, (const char*)nullptr} };
 
 /**
   @brief Check if the given db.tablename is a system table for this SE.
@@ -180,18 +180,18 @@ static st_handler_tablename ha_yengine_system_tables[] = {
   @retval true   Given db.table_name is supported system table.
   @retval false  Given db.table_name is not a supported system table.
 */
-static bool yengine_is_supported_system_table(const char *db,
-                                              const char *table_name,
-                                              bool is_sql_layer_system_table) {
-  st_handler_tablename *systab;
+static bool yengine_is_supported_system_table(const char* db,
+  const char* table_name,
+  bool is_sql_layer_system_table) {
+  st_handler_tablename* systab;
 
   // Does this SE support "ALL" SQL layer system tables ?
-  if (is_sql_layer_system_table) return false;
+  if(is_sql_layer_system_table) return false;
 
   // Check if this is SE layer system tables
   systab = ha_yengine_system_tables;
-  while (systab && systab->db) {
-    if (systab->db == db && strcmp(systab->tablename, table_name) == 0)
+  while(systab && systab->db) {
+    if(systab->db == db && strcmp(systab->tablename, table_name) == 0)
       return true;
     systab++;
   }
@@ -215,10 +215,10 @@ static bool yengine_is_supported_system_table(const char *db,
   handler::ha_open() in handler.cc
 */
 
-int ha_yengine::open(const char *, int, uint, const dd::Table *) {
+int ha_yengine::open(const char*, int, uint, const dd::Table*) {
   DBUG_TRACE;
 
-  if (!(share = get_share())) return 1;
+  if(!(share = get_share())) return 1;
   thr_lock_data_init(&share->lock, &lock, nullptr);
 
   return 0;
@@ -274,7 +274,7 @@ int ha_yengine::close(void) {
   sql_insert.cc, sql_select.cc, sql_table.cc, sql_udf.cc and sql_update.cc
 */
 
-int ha_yengine::write_row(uchar *) {
+int ha_yengine::write_row(uchar*) {
   DBUG_TRACE;
   /*
     Example of a successful write_row. We don't store the data
@@ -308,7 +308,7 @@ int ha_yengine::write_row(uchar *) {
   @see
   sql_select.cc, sql_acl.cc, sql_update.cc and sql_insert.cc
 */
-int ha_yengine::update_row(const uchar *, uchar *) {
+int ha_yengine::update_row(const uchar*, uchar*) {
   DBUG_TRACE;
   return HA_ERR_WRONG_COMMAND;
 }
@@ -333,7 +333,7 @@ int ha_yengine::update_row(const uchar *, uchar *) {
   sql_acl.cc, sql_udf.cc, sql_delete.cc, sql_insert.cc and sql_select.cc
 */
 
-int ha_yengine::delete_row(const uchar *) {
+int ha_yengine::delete_row(const uchar*) {
   DBUG_TRACE;
   return HA_ERR_WRONG_COMMAND;
 }
@@ -345,8 +345,8 @@ int ha_yengine::delete_row(const uchar *) {
   index.
 */
 
-int ha_yengine::index_read_map(uchar *, const uchar *, key_part_map,
-                               enum ha_rkey_function) {
+int ha_yengine::index_read_map(uchar*, const uchar*, key_part_map,
+  enum ha_rkey_function) {
   int rc;
   DBUG_TRACE;
   rc = HA_ERR_WRONG_COMMAND;
@@ -358,7 +358,7 @@ int ha_yengine::index_read_map(uchar *, const uchar *, key_part_map,
   Used to read forward through the index.
 */
 
-int ha_yengine::index_next(uchar *) {
+int ha_yengine::index_next(uchar*) {
   int rc;
   DBUG_TRACE;
   rc = HA_ERR_WRONG_COMMAND;
@@ -370,7 +370,7 @@ int ha_yengine::index_next(uchar *) {
   Used to read backwards through the index.
 */
 
-int ha_yengine::index_prev(uchar *) {
+int ha_yengine::index_prev(uchar*) {
   int rc;
   DBUG_TRACE;
   rc = HA_ERR_WRONG_COMMAND;
@@ -387,7 +387,7 @@ int ha_yengine::index_prev(uchar *) {
   @see
   opt_range.cc, opt_sum.cc, sql_handler.cc and sql_select.cc
 */
-int ha_yengine::index_first(uchar *) {
+int ha_yengine::index_first(uchar*) {
   int rc;
   DBUG_TRACE;
   rc = HA_ERR_WRONG_COMMAND;
@@ -404,7 +404,7 @@ int ha_yengine::index_first(uchar *) {
   @see
   opt_range.cc, opt_sum.cc, sql_handler.cc and sql_select.cc
 */
-int ha_yengine::index_last(uchar *) {
+int ha_yengine::index_last(uchar*) {
   int rc;
   DBUG_TRACE;
   rc = HA_ERR_WRONG_COMMAND;
@@ -450,7 +450,7 @@ int ha_yengine::rnd_end() {
   filesort.cc, records.cc, sql_handler.cc, sql_select.cc, sql_table.cc and
   sql_update.cc
 */
-int ha_yengine::rnd_next(uchar *) {
+int ha_yengine::rnd_next(uchar*) {
   int rc;
   DBUG_TRACE;
   rc = HA_ERR_END_OF_FILE;
@@ -478,7 +478,7 @@ int ha_yengine::rnd_next(uchar *) {
   @see
   filesort.cc, sql_select.cc, sql_delete.cc and sql_update.cc
 */
-void ha_yengine::position(const uchar *) { DBUG_TRACE; }
+void ha_yengine::position(const uchar*) { DBUG_TRACE; }
 
 /**
   @brief
@@ -494,7 +494,7 @@ void ha_yengine::position(const uchar *) { DBUG_TRACE; }
   @see
   filesort.cc, records.cc, sql_insert.cc, sql_select.cc and sql_update.cc
 */
-int ha_yengine::rnd_pos(uchar *, uchar *) {
+int ha_yengine::rnd_pos(uchar*, uchar*) {
   int rc;
   DBUG_TRACE;
   rc = HA_ERR_WRONG_COMMAND;
@@ -600,7 +600,7 @@ int ha_yengine::delete_all_rows() {
   the section "locking functions for mysql" in lock.cc;
   copy_data_between_tables() in sql_table.cc.
 */
-int ha_yengine::external_lock(THD *, int) {
+int ha_yengine::external_lock(THD*, int) {
   DBUG_TRACE;
   return 0;
 }
@@ -642,9 +642,9 @@ int ha_yengine::external_lock(THD *, int) {
   @see
   get_lock_data() in lock.cc
 */
-THR_LOCK_DATA **ha_yengine::store_lock(THD *, THR_LOCK_DATA **to,
-                                       enum thr_lock_type lock_type) {
-  if (lock_type != TL_IGNORE && lock.type == TL_UNLOCK) lock.type = lock_type;
+THR_LOCK_DATA** ha_yengine::store_lock(THD*, THR_LOCK_DATA** to,
+  enum thr_lock_type lock_type) {
+  if(lock_type != TL_IGNORE && lock.type == TL_UNLOCK) lock.type = lock_type;
   *to++ = &lock;
   return to;
 }
@@ -668,7 +668,7 @@ THR_LOCK_DATA **ha_yengine::store_lock(THD *, THR_LOCK_DATA **to,
   @see
   delete_table and ha_create_table() in handler.cc
 */
-int ha_yengine::delete_table(const char *, const dd::Table *) {
+int ha_yengine::delete_table(const char*, const dd::Table*) {
   DBUG_TRACE;
   /* This is not implemented but we want someone to be able that it works. */
   return 0;
@@ -688,8 +688,8 @@ int ha_yengine::delete_table(const char *, const dd::Table *) {
   @see
   mysql_rename_table() in sql_table.cc
 */
-int ha_yengine::rename_table(const char *, const char *, const dd::Table *,
-                             dd::Table *) {
+int ha_yengine::rename_table(const char*, const char*, const dd::Table*,
+  dd::Table*) {
   DBUG_TRACE;
   return HA_ERR_WRONG_COMMAND;
 }
@@ -707,16 +707,16 @@ int ha_yengine::rename_table(const char *, const char *, const dd::Table *,
   @see
   check_quick_keys() in opt_range.cc
 */
-ha_rows ha_yengine::records_in_range(uint, key_range *, key_range *) {
+ha_rows ha_yengine::records_in_range(uint, key_range*, key_range*) {
   DBUG_TRACE;
   return 10;  // low number to force index usage
 }
 
 static MYSQL_THDVAR_STR(last_create_thdvar, PLUGIN_VAR_MEMALLOC, nullptr,
-                        nullptr, nullptr, nullptr);
+  nullptr, nullptr, nullptr);
 
 static MYSQL_THDVAR_UINT(create_count_thdvar, 0, nullptr, nullptr, nullptr, 0,
-                         0, 1000, 0);
+  0, 1000, 0);
 
 /**
   @brief
@@ -737,8 +737,8 @@ static MYSQL_THDVAR_UINT(create_count_thdvar, 0, nullptr, nullptr, nullptr, 0,
   ha_create_table() in handle.cc
 */
 
-int ha_yengine::create(const char *name, TABLE *, HA_CREATE_INFO *,
-                       dd::Table *) {
+int ha_yengine::create(const char* name, TABLE*, HA_CREATE_INFO*,
+  dd::Table*) {
   DBUG_TRACE;
   /*
     This is not implemented but we want someone to be able to see that it
@@ -748,9 +748,9 @@ int ha_yengine::create(const char *name, TABLE *, HA_CREATE_INFO *,
   /*
     It's just an yengine of THDVAR_SET() usage below.
   */
-  THD *thd = ha_thd();
-  char *buf = (char *)my_malloc(PSI_NOT_INSTRUMENTED, SHOW_VAR_FUNC_BUFF_SIZE,
-                                MYF(MY_FAE));
+  THD* thd = ha_thd();
+  char* buf = (char*)my_malloc(PSI_NOT_INSTRUMENTED, SHOW_VAR_FUNC_BUFF_SIZE,
+    MYF(MY_FAE));
   snprintf(buf, SHOW_VAR_FUNC_BUFF_SIZE, "Last creation '%s'", name);
   THDVAR_SET(thd, last_create_thdvar, buf);
   my_free(buf);
@@ -761,7 +761,7 @@ int ha_yengine::create(const char *name, TABLE *, HA_CREATE_INFO *,
   return 0;
 }
 
-struct st_mysql_storage_engine yengine_storage_engine = {8 << 8};
+struct st_mysql_storage_engine yengine_storage_engine = { 8 << 8 };
 
 static ulong srv_enum_var = 0;
 static ulong srv_ulong_var = 0;
@@ -770,57 +770,57 @@ static int srv_signed_int_var = 0;
 static long srv_signed_long_var = 0;
 static longlong srv_signed_longlong_var = 0;
 
-const char *enum_var_names[] = {"e1", "e2", NullS};
+const char* enum_var_names[] = { "e1", "e2", NullS };
 
-TYPELIB enum_var_typelib = {array_elements(enum_var_names) - 1,
-                            "enum_var_typelib", enum_var_names, nullptr};
+TYPELIB enum_var_typelib = { array_elements(enum_var_names) - 1,
+                            "enum_var_typelib", enum_var_names, nullptr };
 
 static MYSQL_SYSVAR_ENUM(enum_var,                        // name
-                         srv_enum_var,                    // varname
-                         PLUGIN_VAR_RQCMDARG,             // opt
-                         "Sample ENUM system variable.",  // comment
-                         nullptr,                         // check
-                         nullptr,                         // update
-                         0,                               // def
-                         &enum_var_typelib);              // typelib
+  srv_enum_var,                    // varname
+  PLUGIN_VAR_RQCMDARG,             // opt
+  "Sample ENUM system variable.",  // comment
+  nullptr,                         // check
+  nullptr,                         // update
+  0,                               // def
+  &enum_var_typelib);              // typelib
 
 static MYSQL_SYSVAR_ULONG(ulong_var, srv_ulong_var, PLUGIN_VAR_RQCMDARG,
-                          "0..1000", nullptr, nullptr, 8, 0, 1000, 0);
+  "0..1000", nullptr, nullptr, 8, 0, 1000, 0);
 
 static MYSQL_SYSVAR_DOUBLE(double_var, srv_double_var, PLUGIN_VAR_RQCMDARG,
-                           "0.500000..1000.500000", nullptr, nullptr, 8.5, 0.5,
-                           1000.5,
-                           0);  // reserved always 0
+  "0.500000..1000.500000", nullptr, nullptr, 8.5, 0.5,
+  1000.5,
+  0);  // reserved always 0
 
 static MYSQL_THDVAR_DOUBLE(double_thdvar, PLUGIN_VAR_RQCMDARG,
-                           "0.500000..1000.500000", nullptr, nullptr, 8.5, 0.5,
-                           1000.5, 0);
+  "0.500000..1000.500000", nullptr, nullptr, 8.5, 0.5,
+  1000.5, 0);
 
 static MYSQL_SYSVAR_INT(signed_int_var, srv_signed_int_var, PLUGIN_VAR_RQCMDARG,
-                        "INT_MIN..INT_MAX", nullptr, nullptr, -10, INT_MIN,
-                        INT_MAX, 0);
+  "INT_MIN..INT_MAX", nullptr, nullptr, -10, INT_MIN,
+  INT_MAX, 0);
 
 static MYSQL_THDVAR_INT(signed_int_thdvar, PLUGIN_VAR_RQCMDARG,
-                        "INT_MIN..INT_MAX", nullptr, nullptr, -10, INT_MIN,
-                        INT_MAX, 0);
+  "INT_MIN..INT_MAX", nullptr, nullptr, -10, INT_MIN,
+  INT_MAX, 0);
 
 static MYSQL_SYSVAR_LONG(signed_long_var, srv_signed_long_var,
-                         PLUGIN_VAR_RQCMDARG, "LONG_MIN..LONG_MAX", nullptr,
-                         nullptr, -10, LONG_MIN, LONG_MAX, 0);
+  PLUGIN_VAR_RQCMDARG, "LONG_MIN..LONG_MAX", nullptr,
+  nullptr, -10, LONG_MIN, LONG_MAX, 0);
 
 static MYSQL_THDVAR_LONG(signed_long_thdvar, PLUGIN_VAR_RQCMDARG,
-                         "LONG_MIN..LONG_MAX", nullptr, nullptr, -10, LONG_MIN,
-                         LONG_MAX, 0);
+  "LONG_MIN..LONG_MAX", nullptr, nullptr, -10, LONG_MIN,
+  LONG_MAX, 0);
 
 static MYSQL_SYSVAR_LONGLONG(signed_longlong_var, srv_signed_longlong_var,
-                             PLUGIN_VAR_RQCMDARG, "LLONG_MIN..LLONG_MAX",
-                             nullptr, nullptr, -10, LLONG_MIN, LLONG_MAX, 0);
+  PLUGIN_VAR_RQCMDARG, "LLONG_MIN..LLONG_MAX",
+  nullptr, nullptr, -10, LLONG_MIN, LLONG_MAX, 0);
 
 static MYSQL_THDVAR_LONGLONG(signed_longlong_thdvar, PLUGIN_VAR_RQCMDARG,
-                             "LLONG_MIN..LLONG_MAX", nullptr, nullptr, -10,
-                             LLONG_MIN, LLONG_MAX, 0);
+  "LLONG_MIN..LLONG_MAX", nullptr, nullptr, -10,
+  LLONG_MIN, LLONG_MAX, 0);
 
-static SYS_VAR *yengine_system_variables[] = {
+static SYS_VAR* yengine_system_variables[] = {
     MYSQL_SYSVAR(enum_var),
     MYSQL_SYSVAR(ulong_var),
     MYSQL_SYSVAR(double_var),
@@ -833,18 +833,18 @@ static SYS_VAR *yengine_system_variables[] = {
     MYSQL_SYSVAR(signed_long_thdvar),
     MYSQL_SYSVAR(signed_longlong_var),
     MYSQL_SYSVAR(signed_longlong_thdvar),
-    nullptr};
+    nullptr };
 
 // this is an yengine of SHOW_FUNC
-static int show_func_yengine(MYSQL_THD, SHOW_VAR *var, char *buf) {
+static int show_func_yengine(MYSQL_THD, SHOW_VAR* var, char* buf) {
   var->type = SHOW_CHAR;
   var->value = buf;  // it's of SHOW_VAR_FUNC_BUFF_SIZE bytes
   snprintf(buf, SHOW_VAR_FUNC_BUFF_SIZE,
-           "enum_var is %lu, ulong_var is %lu, "
-           "double_var is %f, signed_int_var is %d, "
-           "signed_long_var is %ld, signed_longlong_var is %lld",
-           srv_enum_var, srv_ulong_var, srv_double_var, srv_signed_int_var,
-           srv_signed_long_var, srv_signed_longlong_var);
+    "enum_var is %lu, ulong_var is %lu, "
+    "double_var is %f, signed_int_var is %d, "
+    "signed_long_var is %ld, signed_longlong_var is %lld",
+    srv_enum_var, srv_ulong_var, srv_double_var, srv_signed_int_var,
+    srv_signed_long_var, srv_signed_longlong_var);
   return 0;
 }
 
@@ -857,35 +857,35 @@ struct yengine_vars_t {
   ulong var6;
 };
 
-yengine_vars_t yengine_vars = {100, 20.01, "three hundred", true, false, 8250};
+yengine_vars_t yengine_vars = { 100, 20.01, "three hundred", true, false, 8250 };
 
 static SHOW_VAR show_status_yengine[] = {
-    {"var1", (char *)&yengine_vars.var1, SHOW_LONG, SHOW_SCOPE_GLOBAL},
-    {"var2", (char *)&yengine_vars.var2, SHOW_DOUBLE, SHOW_SCOPE_GLOBAL},
+    {"var1", (char*)&yengine_vars.var1, SHOW_LONG, SHOW_SCOPE_GLOBAL},
+    {"var2", (char*)&yengine_vars.var2, SHOW_DOUBLE, SHOW_SCOPE_GLOBAL},
     {nullptr, nullptr, SHOW_UNDEF,
      SHOW_SCOPE_UNDEF}  // null terminator required
 };
 
 static SHOW_VAR show_array_yengine[] = {
-    {"array", (char *)show_status_yengine, SHOW_ARRAY, SHOW_SCOPE_GLOBAL},
-    {"var3", (char *)&yengine_vars.var3, SHOW_CHAR, SHOW_SCOPE_GLOBAL},
-    {"var4", (char *)&yengine_vars.var4, SHOW_BOOL, SHOW_SCOPE_GLOBAL},
-    {nullptr, nullptr, SHOW_UNDEF, SHOW_SCOPE_UNDEF}};
+    {"array", (char*)show_status_yengine, SHOW_ARRAY, SHOW_SCOPE_GLOBAL},
+    {"var3", (char*)&yengine_vars.var3, SHOW_CHAR, SHOW_SCOPE_GLOBAL},
+    {"var4", (char*)&yengine_vars.var4, SHOW_BOOL, SHOW_SCOPE_GLOBAL},
+    {nullptr, nullptr, SHOW_UNDEF, SHOW_SCOPE_UNDEF} };
 
 static SHOW_VAR func_status[] = {
-    {"yengine_func_yengine", (char *)show_func_yengine, SHOW_FUNC,
+    {"yengine_func_yengine", (char*)show_func_yengine, SHOW_FUNC,
      SHOW_SCOPE_GLOBAL},
-    {"yengine_status_var5", (char *)&yengine_vars.var5, SHOW_BOOL,
+    {"yengine_status_var5", (char*)&yengine_vars.var5, SHOW_BOOL,
      SHOW_SCOPE_GLOBAL},
-    {"yengine_status_var6", (char *)&yengine_vars.var6, SHOW_LONG,
+    {"yengine_status_var6", (char*)&yengine_vars.var6, SHOW_LONG,
      SHOW_SCOPE_GLOBAL},
-    {"yengine_status", (char *)show_array_yengine, SHOW_ARRAY,
+    {"yengine_status", (char*)show_array_yengine, SHOW_ARRAY,
      SHOW_SCOPE_GLOBAL},
-    {nullptr, nullptr, SHOW_UNDEF, SHOW_SCOPE_UNDEF}};
+    {nullptr, nullptr, SHOW_UNDEF, SHOW_SCOPE_UNDEF} };
 
-mysql_declare_plugin(yengine){
-    MYSQL_STORAGE_ENGINE_PLUGIN,
-    &yengine_storage_engine,
+mysql_declare_plugin(yengine) {
+  MYSQL_STORAGE_ENGINE_PLUGIN,
+    & yengine_storage_engine,
     "yengine",
 
     "GZTime <Time.GZ@outlook.com>,"
@@ -905,16 +905,14 @@ mysql_declare_plugin(yengine){
     0,                        /* flags */
 } mysql_declare_plugin_end;
 
-void do_test() {
-  int a = 1, b = 2;
-  printf(
-    "Plugin Version: %d\n"
-    "Plugin Size: %d\n"
-    "%d + %d = %d -- from cpp\n"
-    ,
+void put_ha_info() {
+  // printf(
+  //   "Plugin Version: %d\n"
+  //   "Plugin Size: %d\n"
+  //   ,
 
-    _mysql_plugin_interface_version_,
-    _mysql_sizeof_struct_st_plugin_,
-    a, b, a + b
-  );
+  //   _mysql_plugin_interface_version_,
+  //   _mysql_sizeof_struct_st_plugin_
+  // );
+  printf("HA ?");
 }
