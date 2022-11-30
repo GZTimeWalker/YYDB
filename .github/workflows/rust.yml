@@ -17,21 +17,21 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
-    - name: Show tool versions
+    - name: Show Tool Versions
       run: |
         ldd --version
         strings /lib/x86_64-linux-gnu/libc.so.6 | grep "GLIBC"
         rustc --version
         cargo --version
 
-    - name: Run tests
+    - name: Run Tests
       run: cargo test -- --nocapture
 
-    - name: Build
-      run: cargo build --release
+    - name: Build Library
+      run: cargo build --profile=release-with-symbols
 
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3
       with:
         name: yengine
-        path: target/release/libyengine.so
+        path: target/release-with-symbols/libyengine.so
