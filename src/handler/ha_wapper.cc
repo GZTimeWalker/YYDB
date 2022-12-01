@@ -93,7 +93,6 @@
 */
 
 #include "ha_wapper.h"
-#include "bridge.h"
 #include "my_dbug.h"
 #include "mysql/plugin.h"
 #include "sql/sql_class.h"
@@ -120,6 +119,8 @@ static int yengine_init_func(void *p) {
   yengine_hton->create = yengine_create_handler;
   yengine_hton->flags = HTON_CAN_RECREATE;
   yengine_hton->is_supported_system_table = yengine_is_supported_system_table;
+
+  rust_test();
 
   return 0;
 }
@@ -905,10 +906,10 @@ mysql_declare_plugin(yengine) {
 void put_ha_info() {
   printf(
     "Plugin Version: %d\n"
-    "Plugin Size: %d\n"
-    ,
-
+    "Plugin Size:    %d\n"
+    "Plugin Decl:    %p\n",
     _mysql_plugin_interface_version_,
-    _mysql_sizeof_struct_st_plugin_
+    _mysql_sizeof_struct_st_plugin_,
+    &_mysql_plugin_declarations_
   );
 }

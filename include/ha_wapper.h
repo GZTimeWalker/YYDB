@@ -45,6 +45,7 @@
 #include "my_inttypes.h"
 #include "sql/handler.h" /* handler */
 #include "thr_lock.h"    /* THR_LOCK, THR_LOCK_DATA */
+#include "bridge_extern.h"
 
 /** @brief
   Example_share is a class that will be shared among all open handlers.
