@@ -11,6 +11,4 @@ cd $MYSQL_SOURCE_DIR/bld
 
 export MTR_UNIT_TESTS=0
 
-rm -rf $MYSQL_SOURCE_DIR/bld/plugin_output_directory/ha_yengine.so
-
 make -j32 && make install
