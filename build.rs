@@ -18,7 +18,9 @@ fn main() {
         .include("include/mysql/include");
 
     if profile == "debug" {
-        build.file("src/handler/ha_wapper.cc").compile("ha_wapper");
+        build.define("DEBUG", None)
+            .file("src/handler/ha_wapper.cc")
+            .compile("ha_wapper");
     }
 
     println!("cargo:rerun-if-changed=src/bridge.rs");

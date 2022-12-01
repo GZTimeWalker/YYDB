@@ -14,6 +14,9 @@ pub mod ffi {
 }
 
 pub fn rust_test() {
-    println!("rust_test");
+    let a = 1;
+    let b = 2;
+
+    println!("{} + {} = {} -- from rust", a, b, a + b);
     ffi::do_test();
 }

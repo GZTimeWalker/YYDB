@@ -904,10 +904,22 @@ mysql_declare_plugin(yengine) {
 } mysql_declare_plugin_end;
 
 void put_ha_info() {
+
+#ifdef DEBUG
   printf(
     "Plugin Version: %d\n"
     "Plugin Size:    %d\n",
     _mysql_plugin_interface_version_,
     _mysql_sizeof_struct_st_plugin_
   );
+#else
+  printf(
+    "Plugin Version: %d\n"
+    "Plugin Size:    %d\n"
+    "Plugin Struct:  %p\n",
+    _mysql_plugin_interface_version_,
+    _mysql_sizeof_struct_st_plugin_,
+    &_mysql_plugin_declarations_
+  );
+#endif
 }
