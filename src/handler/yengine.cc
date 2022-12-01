@@ -13,6 +13,10 @@ namespace yengine {
       case 2:
         prio = WARNING_LEVEL;
         break;
+      case 3:
+      case 4:
+        prio = SYSTEM_LEVEL;
+        break;
       default:
         prio = INFORMATION_LEVEL;
         break;
