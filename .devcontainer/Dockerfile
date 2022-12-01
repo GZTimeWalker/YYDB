@@ -38,6 +38,7 @@ RUN set -eux; \
 
 COPY .devcontainer/config.toml $CARGO_HOME/config.toml
 COPY .devcontainer/.zshrc /root/.zshrc
+COPY .devcontainer/my.cnf /etc/mysql/my.cnf
 
 RUN useradd -m -s /bin/zsh -G sudo -u 1024 -U dev && \
     echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
