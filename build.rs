@@ -12,15 +12,12 @@ fn main() {
     build.cpp(true)
         .flag_if_supported("-std=c++17")
         .opt_level(3)
+        .define("MYSQL_DYNAMIC_PLUGIN", None)
         .include("include")
         .include("include/mysql")
         .include("include/mysql/include");
 
     if profile == "debug" {
-        let cml = build.get_compiler();
-
-        println!("cargo:warning=Compiler: {:?}", cml);
-
         build.file("src/handler/ha_wapper.cc").compile("ha_wapper");
     }
 

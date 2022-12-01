@@ -24,3 +24,5 @@ mv mysql-* mysql-8.0
 
 export MYSQL_SOURCE_DIR=/usr/local/src/mysql-8.0
 chown dev:dev -R $MYSQL_SOURCE_DIR
+
+# /usr/local/mysql/bin/mysql -uroot -p7pxvj+ac-y%G
