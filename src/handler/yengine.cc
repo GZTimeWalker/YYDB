@@ -1,26 +1,17 @@
 #include "yengine.h"
 
 namespace yengine {
-  /* Write log
-   * enum LogLevel {
-   *     Trace = 0,
-   *     Debug = 1,
-   *     Info = 2,
-   *     Warn = 3,
-   *     Error = 4,
-   * }
-   */
   void mysql_log_write_raw(int level, const char* msg, int len) {
     int prio;
     char buf[Y_ENGINE_MAX_LOG_BUFFER_SIZE];
     char* long_buf = nullptr;
 
     switch(level) {
-      case 3:
-        prio = WARNING_LEVEL;
-        break;
-      case 4:
+      case 1:
         prio = ERROR_LEVEL;
+        break;
+      case 2:
+        prio = WARNING_LEVEL;
         break;
       default:
         prio = INFORMATION_LEVEL;
