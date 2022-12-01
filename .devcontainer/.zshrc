@@ -256,3 +256,6 @@ fi
 export LANGUAGE=en_US.UTF-8
 export LANG=en_US.UTF-8
 export LC_ALL=en_US.UTF-8
+
+export MYSQL_BASE_DIR=/usr/local/mysql
+export PATH=$PATH:$MYSQL_BASE_DIR/bin
