@@ -1,3 +1,5 @@
+#!/bin/bash
+
 if [ ! -z $MYSQL_SOURCE_DIR] ; then
     echo "MYSQL_SOURCE_DIR is not set"
     exit 1

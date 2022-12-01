@@ -23,3 +23,5 @@ ln -s $PWD/target/release/libyengine.a $DEST
 ln -s $PWD/scripts/CMakeLists.txt $DEST
 
 echo "Done, please run 'scripts/cmake.sh' to configure MySQL with YEngine"
+
+# 7pxvj+ac-y%G

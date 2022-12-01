@@ -889,8 +889,7 @@ mysql_declare_plugin(yengine) {
   MYSQL_STORAGE_ENGINE_PLUGIN,
     &yengine_storage_engine,
     "yengine",
-    "GZTime <Time.GZ@outlook.com>,Zhengty <1051655293@qq.com>," \
-    "cychester <chenych89@mail2.sysu.edu.cn>,chengy-sysu <939416532@qq.com>",
+    "GZTime, Zhengty, cychester, chengy-sysu",
     "Y-Engine storage engine",
     PLUGIN_LICENSE_GPL,
     yengine_init_func, /* Plugin Init */
