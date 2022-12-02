@@ -50,15 +50,8 @@ RUN set -eux; \
     gpgconf --kill all; \
     rm -rf "$GNUPGHOME"
 
-RUN echo 'deb [ signed-by=/etc/apt/keyrings/mysql.gpg ] http://repo.mysql.com/apt/debian/ bullseye mysql-8.0' > /etc/apt/sources.list.d/mysql.list && \
-    echo 'deb-src [ signed-by=/etc/apt/keyrings/mysql.gpg ] http://repo.mysql.com/apt/debian/ bullseye mysql-8.0' >> /etc/apt/sources.list.d/mysql.list
-
-WORKDIR /usr/local/src
-RUN apt update && apt source mysql-community && \
-    rm *.tar.* *.dsc && \
-    mv mysql-* mysql-8.0
-
-ENV MYSQL_SOURCE_DIR=/usr/local/src/mysql-8.0
+RUN echo 'deb [ signed-by=/etc/apt/keyrings/mysql.gpg ] http://mirrors.ustc.edu.cn/mysql-repo/apt/debian/ bullseye mysql-8.0' > /etc/apt/sources.list.d/mysql.list && \
+    echo 'deb-src [ signed-by=/etc/apt/keyrings/mysql.gpg ] http://mirrors.ustc.edu.cn/mysql-repo/apt/debian/ bullseye mysql-8.0' >> /etc/apt/sources.list.d/mysql.list
 
 WORKDIR /
 COPY .devcontainer/config.toml $CARGO_HOME/config.toml
@@ -69,6 +62,14 @@ RUN useradd -m -s /bin/zsh -G sudo -u 1024 -U dev && \
     chsh -s /bin/zsh root && \
     cp /root/.zshrc /home/dev/.zshrc && \
     mkdir /Y-Engine
+
+WORKDIR /usr/local/src
+RUN apt update && apt source mysql-community && \
+    rm *.tar.* *.dsc && mv mysql-* mysql-8.0 && \
+    chown -R dev:dev mysql-8.0 && \
+    mkdir -p /usr/local/mysql
+
+ENV MYSQL_SOURCE_DIR=/usr/local/src/mysql-8.0
 
 USER dev
 
