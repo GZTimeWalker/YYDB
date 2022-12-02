@@ -12,10 +12,4 @@ namespace yengine {
     /* Lifecycle */
     int ha_yengine_core_init();
     /* End of lifecycle */
-
-    /* test */
-    void do_test();
-    void cpp_test();
-    extern void put_ha_info();
-    /* End of test */
 }

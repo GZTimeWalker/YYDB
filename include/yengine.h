@@ -8,10 +8,12 @@
 extern REQUIRES_SERVICE_PLACEHOLDER(log_builtins);
 extern REQUIRES_SERVICE_PLACEHOLDER(log_builtins_string);
 
-extern SERVICE_TYPE(log_builtins) *log_bi;
-extern SERVICE_TYPE(log_builtins_string) *log_bs;
+extern SERVICE_TYPE(log_builtins)* log_bi;
+extern SERVICE_TYPE(log_builtins_string)* log_bs;
 
-inline void __LogWapper(int prio, const char* msg);
+inline void __mysql_log(int prio, const char* msg) {
+    LogErr(prio, ER_LOG_PRINTF_MSG, msg);
+}
 
 namespace yengine {
     /* Logging */
@@ -21,9 +23,4 @@ namespace yengine {
     /* Lifecycle */
     extern int ha_yengine_core_init();
     /* End of lifecycle */
-
-    /* test */
-    extern void rust_test();
-    extern void do_test();
-    /* End of test */
 }

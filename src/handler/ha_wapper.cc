@@ -93,6 +93,7 @@
   */
 
 #include "ha_wapper.h"
+#include "yengine.h"
 #include "my_dbug.h"
 #include "mysql/plugin.h"
 #include "sql/sql_class.h"
@@ -121,7 +122,7 @@ static int yengine_init_func(void* p) {
   if(init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs))
     return 1;
 
-  if(yengine::ha_yengine_core_init()) return 1;
+  __mysql_log(SYSTEM_LEVEL, "[+] Initializing Y-Enging storage engine...");
 
   yengine_hton = (handlerton*)p;
   yengine_hton->state = SHOW_OPTION_YES;
@@ -129,7 +130,7 @@ static int yengine_init_func(void* p) {
   yengine_hton->flags = HTON_CAN_RECREATE;
   yengine_hton->is_supported_system_table = yengine_is_supported_system_table;
 
-  yengine::rust_test();
+  if(yengine::ha_yengine_core_init()) return 1;
 
   deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
   return 0;
@@ -912,26 +913,3 @@ mysql_declare_plugin(yengine) {
     nullptr,                  /* config options */
     0,                        /* flags */
 } mysql_declare_plugin_end;
-
-namespace yengine {
-  void put_ha_info() {
-#ifdef RUST_DEBUG
-    printf(
-      "Plugin Version: %d\n"
-      "Plugin Size:    %d\n",
-      _mysql_plugin_interface_version_,
-      _mysql_sizeof_struct_st_plugin_
-    );
-#else
-    printf(
-      "Plugin Version: %d\n"
-      "Plugin Size:    %d\n"
-      "Plugin Struct:  %p\n",
-      _mysql_plugin_interface_version_,
-      _mysql_sizeof_struct_st_plugin_,
-      &_mysql_plugin_declarations_
-    );
-#endif
-    fflush(stdout);
-  }
-}

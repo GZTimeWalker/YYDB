@@ -34,14 +34,10 @@ namespace yengine {
       msg = buf;
     }
 
-    __LogWapper(prio, msg);
+    __mysql_log(prio, msg);
 
     if(long_buf != nullptr) {
       delete[] long_buf;
     }
   }
-}
-
-inline void __LogWapper(int prio, const char* msg) {
-  LogErr(prio, ER_LOG_PRINTF_MSG, msg);
 }

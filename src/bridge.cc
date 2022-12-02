@@ -18,12 +18,4 @@ namespace yengine {
         return 0;
     }
     /* End of lifecycle */
-
-    /* test */
-    void do_test() {
-        int a = 1, b = 2;
-        printf("%d + %d = %d -- from cpp\n", a, b, a + b);
-        put_ha_info();
-    }
-    /* End of test */
 }
