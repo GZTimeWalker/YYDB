@@ -70,3 +70,19 @@ impl log::Log for Logger {
 
     fn flush(&self) {}
 }
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn it_works() {
+        init();
+        trace!("Hello, world!");
+        debug!("Hello, world!");
+        info!("Hello, world!");
+        warn!("Hello, world!");
+        error!("Hello, world!");
+    }
+}

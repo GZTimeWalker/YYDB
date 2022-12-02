@@ -19,14 +19,3 @@ pub fn rust_init() {
 
     info!("Y-Engine Initialized.");
 }
-
-
-#[test]
-#[cfg(test)]
-fn test_logger() {
-    utils::logger::init();
-
-    info!("Y-Engine Logger Test");
-    warn!("Y-Engine Logger Test");
-    error!("Y-Engine Logger Test");
-}
