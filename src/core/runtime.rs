@@ -37,5 +37,5 @@ impl Runtime {
 
 pub fn init() {
     Runtime::global();
-    info!("Y-Engine Runtime Initialized.");
+    info!("Runtime Initialized.");
 }

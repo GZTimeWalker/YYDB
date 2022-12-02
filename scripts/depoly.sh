@@ -28,7 +28,7 @@ rm /usr/local/mysql/lib/plugin/ha_yengine.so || true
 ln -s $WORK_DIR/include/*.h $DEST
 ln -s $WORK_DIR/src/handler/*.cc $DEST
 
-cargo build --release --verbose
+cargo build --release
 
 ln -s $WORK_DIR/target/release/libyengine.a $DEST
 ln -s $WORK_DIR/scripts/CMakeLists.txt $DEST

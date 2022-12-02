@@ -44,15 +44,15 @@ impl Logger {
     fn get_formatted_message(&self, record: &Record) -> String {
         match record.level() {
             log::Level::Error => format!(
-                "[E] {}@{}: {}",
+                "[Err] {}@{}: {}",
                 record.file_static().unwrap_or(""),
                 record.line().unwrap_or(0),
                 record.args()
             ),
-            log::Level::Warn => format!("[!] {}", record.args()),
-            log::Level::Info => format!("[+] {}", record.args()),
-            log::Level::Debug => format!("[D] {}", record.args()),
-            log::Level::Trace => format!("[T] {}", record.args()),
+            log::Level::Warn => format!("[Wrn] {}", record.args()),
+            log::Level::Info => format!("[Inf] {}", record.args()),
+            log::Level::Debug => format!("[Dug] {}", record.args()),
+            log::Level::Trace => format!("[Vrb] {}", record.args()),
         }
     }
 }

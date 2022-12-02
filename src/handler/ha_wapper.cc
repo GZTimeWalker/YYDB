@@ -122,7 +122,7 @@ static int yengine_init_func(void* p) {
   if(init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs))
     return 1;
 
-  __mysql_log(SYSTEM_LEVEL, "[+] Initializing Y-Enging storage engine...");
+  __mysql_log(SYSTEM_LEVEL, "[Inf] Initializing Y-Enging storage engine...");
 
   yengine_hton = (handlerton*)p;
   yengine_hton->state = SHOW_OPTION_YES;
