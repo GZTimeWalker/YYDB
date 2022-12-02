@@ -3,7 +3,7 @@ use once_cell::sync::OnceCell;
 
 static LOGGER: OnceCell<Logger> = OnceCell::new();
 
-pub fn init() {
+pub(crate) fn init() {
     log::set_logger(Logger::global()).unwrap();
     log::set_max_level(match option_env!("LOG_LEVEL") {
         Some("error") => LevelFilter::Error,
@@ -70,7 +70,6 @@ impl log::Log for Logger {
 
     fn flush(&self) {}
 }
-
 
 #[cfg(test)]
 mod tests {

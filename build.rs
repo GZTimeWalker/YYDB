@@ -9,7 +9,8 @@ fn main() {
 
     let mut build = cc::Build::new();
 
-    build.cpp(true)
+    build
+        .cpp(true)
         .flag_if_supported("-std=c++17")
         .opt_level(3)
         .define("MYSQL_DYNAMIC_PLUGIN", None)
@@ -18,10 +19,11 @@ fn main() {
         .include("include/mysql/include");
 
     if profile == "debug" {
-        build.define("RUST_DEBUG", None)
+        build
+            .define("RUST_DEBUG", None)
             .file("src/handler/ha_wapper.cc")
             .file("src/handler/yengine.cc")
-            .compile("ha_wapper");
+            .compile("ha_yengine");
     }
 
     println!("cargo:rerun-if-changed=src/bridge.rs");

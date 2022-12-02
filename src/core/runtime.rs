@@ -4,11 +4,11 @@ use tokio::task::JoinHandle;
 
 static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 
-pub struct Runtime {
+pub(crate) struct Runtime {
     tokio_rt: tokio::runtime::Runtime,
 }
 
-pub fn init() {
+pub(crate) fn init() {
     Runtime::global();
     info!("Runtime Initialized.");
 }
@@ -62,8 +62,8 @@ impl Runtime {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
     use futures::future;
+    use rand::Rng;
     use std::time::Duration;
 
     #[test]
