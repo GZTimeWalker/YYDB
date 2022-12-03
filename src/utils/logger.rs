@@ -3,6 +3,7 @@ use once_cell::sync::OnceCell;
 
 static LOGGER: OnceCell<Logger> = OnceCell::new();
 
+/// Init the logger of Y-Engine.
 pub(crate) fn init() {
     log::set_logger(Logger::global()).unwrap();
     log::set_max_level(match option_env!("LOG_LEVEL") {
