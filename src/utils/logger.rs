@@ -5,7 +5,11 @@ static LOGGER: OnceCell<Logger> = OnceCell::new();
 
 /// Init the logger of Y-Engine.
 pub(crate) fn init() {
-    log::set_logger(Logger::global()).unwrap();
+    // an error will be returned if the logger was
+    // already initialized. this situation is expected
+    // when we reinstall the plugin.
+    log::set_logger(Logger::global()).ok();
+
     log::set_max_level(match option_env!("LOG_LEVEL") {
         Some("error") => LevelFilter::Error,
         Some("warn") => LevelFilter::Warn,
