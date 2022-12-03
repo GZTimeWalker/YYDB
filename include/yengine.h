@@ -39,5 +39,10 @@ namespace yengine {
      */
     extern int ha_yengine_core_init();
 
+    /** @brief
+    Initialize the YEngine core.
+    */
+    extern int ha_yengine_core_deinit();
+
     /* End of lifecycle */
 }

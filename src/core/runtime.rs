@@ -38,7 +38,7 @@ where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
-    Runtime::global().block_on(future)
+    Runtime::global().tokio_rt.block_on(future)
 }
 
 /// Spawn a future to the global runtime.
@@ -61,7 +61,7 @@ where
     F: Future<Output = T> + Send + 'static,
     T: Send + 'static,
 {
-    Runtime::global().spawn(future)
+    Runtime::global().tokio_rt.spawn(future)
 }
 
 impl Runtime {
@@ -71,25 +71,11 @@ impl Runtime {
                 .enable_all()
                 .build()
                 .unwrap();
-            Runtime { tokio_rt: rt }
+
+            Runtime {
+                tokio_rt: rt,
+            }
         })
-    }
-
-    #[inline]
-    pub fn spawn<F, T>(&self, future: F) -> tokio::task::JoinHandle<T>
-    where
-        F: std::future::Future<Output = T> + Send + 'static,
-        T: Send + 'static,
-    {
-        self.tokio_rt.spawn(future)
-    }
-
-    #[inline]
-    pub fn block_on<F>(&self, future: F) -> F::Output
-    where
-        F: std::future::Future,
-    {
-        self.tokio_rt.block_on(future)
     }
 }
 

@@ -118,7 +118,6 @@ Example_share::Example_share() { thr_lock_init(&lock); }
 
 static int yengine_init_func(void* p) {
     DBUG_TRACE;
-
     if(init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs))
         return 1;
 
@@ -131,6 +130,15 @@ static int yengine_init_func(void* p) {
     yengine_hton->is_supported_system_table = yengine_is_supported_system_table;
 
     if(yengine::ha_yengine_core_init()) return 1;
+
+    return 0;
+}
+
+static int yengine_deinit_func(void *) {
+    DBUG_TRACE;
+    __mysql_log(SYSTEM_LEVEL, "[Inf] Deinitializing Y-Enging storage engine...");
+
+    if(yengine::ha_yengine_core_deinit()) return 1;
 
     deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
     return 0;
@@ -906,7 +914,7 @@ mysql_declare_plugin(yengine) {
         PLUGIN_LICENSE_GPL,
         yengine_init_func, /* Plugin Init */
         nullptr,           /* Plugin check uninstall */
-        nullptr,           /* Plugin Deinit */
+        yengine_deinit_func,      /* Plugin Deinit */
         0x0001 /* 0.1 */,
         func_status,              /* status variables */
         yengine_system_variables, /* system variables */

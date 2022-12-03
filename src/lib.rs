@@ -18,3 +18,8 @@ pub fn rust_init() {
 
     info!("Y-Engine Initialized.");
 }
+
+pub fn rust_deinit() {
+    // do something
+    info!("Y-Engine Deinitialized.");
+}

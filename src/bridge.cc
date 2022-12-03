@@ -17,5 +17,12 @@ namespace yengine {
         // do other stuff
         return 0;
     }
+
+    int ha_yengine_core_deinit() {
+        rust_deinit();
+
+        // do other stuff
+        return 0;
+    }
     /* End of lifecycle */
 }
