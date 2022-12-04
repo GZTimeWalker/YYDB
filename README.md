@@ -23,7 +23,7 @@ The compilation process is as follows:
 | bridge.rs (Rust) | |           |                         |
 | bridge.cc (C++)  | | cxxbridge |           Compile CXX   |
 +------------------+ +-----------+        & Link Rust libs |
-| lib.rs (Rust)    | | Rust Compile                        |
+| lib.rs (Rust)    | |  Compile                            |
 | other files...   | |                     ha_yengine.so <-+
 +------------------+-+
 ```
