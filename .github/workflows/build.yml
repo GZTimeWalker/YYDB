@@ -25,8 +25,11 @@ jobs:
           ~/.cargo/git/db/
           target/
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
 
     - uses: actions/cache@v3
+      id: mysql-cache
       with:
         path: |
           ~/mysql/
@@ -36,17 +39,27 @@ jobs:
       if: steps.mysql-cache.outputs.cache-hit != 'true'
       run: |
         git clone https://github.com/mysql/mysql-server.git --depth 1 --branch 8.0 ~/mysql
+        ls -alh ~/mysql
+
+    - uses: actions/cache@v3
+      id: apt-cache
+      with:
+        path: /var/cache/apt/archives
+        key: ${{ runner.os }}-apt-cache-${{ hashFiles('/var/cache/apt/archives/**') }}
+        restore-keys: |
+          ${{ runner.os }}-apt-cache-
 
     - name: Install Dependency
+      if: steps.apt-cache.outputs.cache-hit != 'true'
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential cmake bzip2 openssl perl xz-utils zstd \
-              libssl-dev zlib1g-dev libncurses-dev pkg-config libudev-dev
+        sudo apt-get install --no-install-recommends -y build-essential cmake bzip2 \
+          openssl perl xz-utils zstd libssl-dev zlib1g-dev libncurses-dev pkg-config libudev-dev
 
     - name: Run Tests
       run: cargo test -- --nocapture
       env:
-        MYSQL_SOURCE_DIR: ~/mysql
+        MYSQL_SOURCE_DIR: /home/runner/mysql
 
     - name: Build Library
       run: |
@@ -55,10 +68,10 @@ jobs:
       env:
         NO_INSTALL: true
         NO_SOFT_LINK: true
-        MYSQL_SOURCE_DIR: ~/mysql
+        MYSQL_SOURCE_DIR: /home/runner/mysql
 
     - name: Upload Library
       uses: actions/upload-artifact@v3
       with:
         name: yydb
-        path: ~/mysql/bld/plugin_output_directory/ha_yydb.so
+        path: /home/runner/mysql/bld/plugin_output_directory/ha_yydb.so
