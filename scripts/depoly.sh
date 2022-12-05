@@ -33,4 +33,6 @@ cargo build --release
 ln -s $WORK_DIR/target/release/libyydb.a $DEST
 ln -s $WORK_DIR/scripts/CMakeLists.txt $DEST
 
+mkdir -p $MYSQL_SOURCE_DIR/bld
+
 echo "Done, please run 'scripts/build.sh' to build MySQL with YYDB"

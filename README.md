@@ -36,6 +36,4 @@ We need to expose some symbols to the MySQL server, such as `_mysql_plugin_decla
 
 We provide a [Dev Container](https://code.visualstudio.com/docs/remote/containers) for you to develop this project. You can use [VSCode](https://code.visualstudio.com/) to open this project and press `F1` to run `Dev Containers: Reopen in Container` to start the Dev Container.
 
-Since it takes about 10GB+ of disk space to build MySQL, the default container does not come with MySQL source code. If you need to do a full build with MySQL, please edit the `.devcontainer/docker-compose.yaml` file and change the `Dockerfile` to `Dockerfile.full` and create the container, or you can do a manual source install via `scripts/install-source.sh`.
-
 Then you can simply run `scripts/depoly.sh && scripts/build.sh` to build the project.
