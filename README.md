@@ -1,4 +1,4 @@
-# Y-Engine
+# YYDB
 
 Yat another MySQL storage engine.
 
@@ -12,19 +12,19 @@ The compilation process is as follows:
 
 ```log
                                       MySQL source dir
-+------------------+-+               ./storage/yengine
++------------------+-+               ./storage/yydb
 | ha_wapper.h      | |   Copy        +----------------+-+
-| yengine.h        | +-----------+   | CMakeLists.txt | |
+| yydb.h           | +-----------+   | CMakeLists.txt | |
 | ha_wapper.cc     | |           |   +----------------+ |
-| yengine.cc       | |           +-> |  C++ sources   | +--+
+| yydb.cc          | |           +-> |  C++ sources   | +--+
 +------------------+-+               +----------------+ |  |
-                                 +-> |  libyengine.a  | |  |
+                                 +-> |   libyydb.a    | |  |
 +------------------+-+           |   +----------------+-+  |
 | bridge.rs (Rust) | |           |                         |
 | bridge.cc (C++)  | | cxxbridge |           Compile CXX   |
 +------------------+ +-----------+        & Link Rust libs |
 | lib.rs (Rust)    | |  Compile                            |
-| other files...   | |                     ha_yengine.so <-+
+| other files...   | |                        ha_yydb.so <-+
 +------------------+-+
 ```
 

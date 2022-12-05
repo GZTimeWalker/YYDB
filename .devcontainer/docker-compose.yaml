@@ -1,27 +1,27 @@
 services:
-  yengine:
+  yydb:
     build:
       context: ..
       dockerfile: .devcontainer/Dockerfile
-    container_name: yengine-dev
+    container_name: yydb-dev
     entrypoint:
       - sleep
       - infinity
     init: true
     volumes:
-      - ..:/Y-Engine
+      - ..:/YYDB
       - type: bind
         source: /var/run/docker.sock
         target: /var/run/docker.sock
     networks:
-      - yengine-dev
+      - yydb-dev
     cap_add:
       - SYS_PTRACE
 
 networks:
-  yengine-dev:
+  yydb-dev:
     attachable: true
-    name: yengine-dev
+    name: yydb-dev
     ipam:
       config:
-        - subnet: 192.168.124.0/26
+        - subnet: 192.168.233.0/26

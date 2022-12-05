@@ -22,7 +22,7 @@ inline void __mysql_log(int prio, const char* msg) {
     LogErr(prio, ER_LOG_PRINTF_MSG, msg);
 }
 
-namespace yengine {
+namespace yydb {
     /* Logging */
 
     /** @brief
@@ -35,14 +35,14 @@ namespace yengine {
     /* Lifecycle */
 
     /** @brief
-      Initialize the YEngine core.
+      Initialize the YYDB core.
      */
-    extern int ha_yengine_core_init();
+    extern int ha_yydb_core_init();
 
     /** @brief
-    Initialize the YEngine core.
+    Initialize the YYDB core.
     */
-    extern int ha_yengine_core_deinit();
+    extern int ha_yydb_core_deinit();
 
     /* End of lifecycle */
 }

@@ -21,4 +21,4 @@ cmake ..                             \
 
 make -j32 && make install
 
-echo "Done, MySQL with YEngine is installed!"
+echo "Done, MySQL with YYDB is installed!"

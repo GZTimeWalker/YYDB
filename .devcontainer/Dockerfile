@@ -44,7 +44,7 @@ RUN useradd -m -s /bin/zsh -G sudo -u 1024 -U dev && \
     echo "dev ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers && \
     chsh -s /bin/zsh root && \
     cp /root/.zshrc /home/dev/.zshrc && \
-    mkdir /Y-Engine
+    mkdir /YYDB
 
 USER dev
 

@@ -20,22 +20,22 @@
   along with this program; if not, write to the Free Software
   Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA */
 
-  /** @file ha_yengine.h
+  /** @file ha_yydb.h
 
       @brief
-    The ha_yengine engine is a stubbed storage engine for yengine purposes only;
+    The ha_yydb engine is a stubbed storage engine for yydb purposes only;
     it does nothing at this point. Its purpose is to provide a source
     code illustration of how to begin writing new storage engines; see also
-    /storage/yengine/ha_yengine.cc.
+    /storage/yydb/ha_yydb.cc.
 
       @note
-    Please read ha_yengine.cc before reading this file.
-    Reminder: The yengine storage engine implements all methods that are
+    Please read ha_yydb.cc before reading this file.
+    Reminder: The yydb storage engine implements all methods that are
     *required* to be implemented. For a full list of all methods that you can
     implement, see handler.h.
 
      @see
-    /sql/handler.h and /storage/yengine/ha_yengine.cc
+    /sql/handler.h and /storage/yydb/ha_yydb.cc
   */
 
 #include <sys/types.h>
@@ -45,11 +45,11 @@
 #include "my_inttypes.h"
 #include "sql/handler.h" /* handler */
 #include "thr_lock.h"    /* THR_LOCK, THR_LOCK_DATA */
-#include "yengine.h"
+#include "yydb.h"
 
   /** @brief
     Example_share is a class that will be shared among all open handlers.
-    This yengine implements the minimum of what you will probably need.
+    This yydb implements the minimum of what you will probably need.
   */
 class Example_share : public Handler_share {
     public:
@@ -61,14 +61,14 @@ class Example_share : public Handler_share {
 /** @brief
   Class definition for the storage engine
 */
-class ha_yengine : public handler {
+class ha_yydb : public handler {
     THR_LOCK_DATA lock;          ///< MySQL lock
     Example_share* share;        ///< Shared lock info
     Example_share* get_share();  ///< Get the share
 
     public:
-    ha_yengine(handlerton* hton, TABLE_SHARE* table_arg);
-    ~ha_yengine() override = default;
+    ha_yydb(handlerton* hton, TABLE_SHARE* table_arg);
+    ~ha_yydb() override = default;
 
     /** @brief
       The name that will be used for display purposes.
@@ -175,67 +175,67 @@ class ha_yengine : public handler {
     }
 
     /*
-      Everything below are methods that we implement in ha_yengine.cc.
+      Everything below are methods that we implement in ha_yydb.cc.
 
       Most of these methods are not obligatory, skip them and
       MySQL will treat them as not implemented
     */
     /** @brief
-      We implement this in ha_yengine.cc; it's a required method.
+      We implement this in ha_yydb.cc; it's a required method.
     */
     int open(const char* name, int mode, uint test_if_locked,
         const dd::Table* table_def) override;  // required
 
     /** @brief
-      We implement this in ha_yengine.cc; it's a required method.
+      We implement this in ha_yydb.cc; it's a required method.
     */
     int close(void) override;  // required
 
     /** @brief
-      We implement this in ha_yengine.cc. It's not an obligatory method;
+      We implement this in ha_yydb.cc. It's not an obligatory method;
       skip it and and MySQL will treat it as not implemented.
     */
     int write_row(uchar* buf) override;
 
     /** @brief
-      We implement this in ha_yengine.cc. It's not an obligatory method;
+      We implement this in ha_yydb.cc. It's not an obligatory method;
       skip it and and MySQL will treat it as not implemented.
     */
     int update_row(const uchar* old_data, uchar* new_data) override;
 
     /** @brief
-      We implement this in ha_yengine.cc. It's not an obligatory method;
+      We implement this in ha_yydb.cc. It's not an obligatory method;
       skip it and and MySQL will treat it as not implemented.
     */
     int delete_row(const uchar* buf) override;
 
     /** @brief
-      We implement this in ha_yengine.cc. It's not an obligatory method;
+      We implement this in ha_yydb.cc. It's not an obligatory method;
       skip it and and MySQL will treat it as not implemented.
     */
     int index_read_map(uchar* buf, const uchar* key, key_part_map keypart_map,
         enum ha_rkey_function find_flag) override;
 
     /** @brief
-      We implement this in ha_yengine.cc. It's not an obligatory method;
+      We implement this in ha_yydb.cc. It's not an obligatory method;
       skip it and and MySQL will treat it as not implemented.
     */
     int index_next(uchar* buf) override;
 
     /** @brief
-      We implement this in ha_yengine.cc. It's not an obligatory method;
+      We implement this in ha_yydb.cc. It's not an obligatory method;
       skip it and and MySQL will treat it as not implemented.
     */
     int index_prev(uchar* buf) override;
 
     /** @brief
-      We implement this in ha_yengine.cc. It's not an obligatory method;
+      We implement this in ha_yydb.cc. It's not an obligatory method;
       skip it and and MySQL will treat it as not implemented.
     */
     int index_first(uchar* buf) override;
 
     /** @brief
-      We implement this in ha_yengine.cc. It's not an obligatory method;
+      We implement this in ha_yydb.cc. It's not an obligatory method;
       skip it and and MySQL will treat it as not implemented.
     */
     int index_last(uchar* buf) override;

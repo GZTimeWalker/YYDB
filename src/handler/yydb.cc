@@ -1,6 +1,6 @@
-#include "yengine.h"
+#include "yydb.h"
 
-namespace yengine {
+namespace yydb {
     void mysql_log_write_raw(int level, const char* msg, int len) {
         int prio;
         char buf[Y_ENGINE_MAX_LOG_BUFFER_SIZE];

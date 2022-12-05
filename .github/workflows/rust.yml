@@ -35,5 +35,5 @@ jobs:
     - name: Upload a Build Artifact
       uses: actions/upload-artifact@v3
       with:
-        name: yengine
-        path: target/release/libyengine.a
+        name: yydb
+        path: target/release/libyydb.a

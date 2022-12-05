@@ -22,15 +22,15 @@ fn main() {
         build
             .define("RUST_DEBUG", None)
             .file("src/handler/ha_wapper.cc")
-            .file("src/handler/yengine.cc")
-            .compile("ha_yengine");
+            .file("src/handler/yydb.cc")
+            .compile("ha_yydb");
     }
 
     println!("cargo:rerun-if-changed=src/bridge.rs");
     println!("cargo:rerun-if-changed=src/bridge.cc");
     println!("cargo:rerun-if-changed=src/handler/ha_wapper.cc");
-    println!("cargo:rerun-if-changed=src/handler/yengine.cc");
+    println!("cargo:rerun-if-changed=src/handler/yydb.cc");
     println!("cargo:rerun-if-changed=include/ha_wapper.h");
-    println!("cargo:rerun-if-changed=include/yengine.h");
+    println!("cargo:rerun-if-changed=include/yydb.h");
     println!("cargo:rerun-if-changed=include/bridge.h");
 }

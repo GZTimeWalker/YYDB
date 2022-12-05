@@ -1,6 +1,6 @@
 use crate::*;
 
-#[cxx::bridge(namespace = "yengine")]
+#[cxx::bridge(namespace = "yydb")]
 pub mod ffi {
     // Rust types and signatures exposed to C++.
     extern "Rust" {
@@ -13,7 +13,7 @@ pub mod ffi {
 
     // C++ types and signatures exposed to Rust.
     unsafe extern "C++" {
-        include!("yengine/include/bridge.h");
+        include!("yydb/include/bridge.h");
 
         // write log to mysql log
         pub fn mysql_log_write(level: i32, message: &str);

@@ -1,5 +1,5 @@
 [package]
-name = "yengine"
+name = "yydb"
 version = "0.1.0"
 edition = "2021"
 authors = [
@@ -8,12 +8,10 @@ authors = [
     "cychester <chenych89@mail2.sysu.edu.cn>",
     "chengy-sysu <939416532@qq.com>"
 ]
-description = "Y-Engine Rust Core for MySQL"
+description = "YYDB Rust Core for MySQL"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
-name = "yengine"
-path = "src/lib.rs"
 crate-type = ["rlib", "staticlib"]
 
 [dependencies]

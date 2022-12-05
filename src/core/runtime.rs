@@ -4,7 +4,7 @@ use tokio::task::JoinHandle;
 
 static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 
-/// The runtime of Y-Engine.
+/// The runtime of YYDB.
 ///
 /// There will be only one runtime in the whole process.
 /// It is initialized in `rust_init` function, and hold
@@ -13,7 +13,7 @@ pub(crate) struct Runtime {
     tokio_rt: tokio::runtime::Runtime,
 }
 
-/// Init the runtime of Y-Engine.
+/// Init the runtime of YYDB.
 pub(crate) fn init() {
     Runtime::global();
     info!("Runtime Initialized.");
@@ -25,7 +25,7 @@ pub(crate) fn init() {
 /// # Examples
 ///
 /// ```
-/// use yengine::block_on;
+/// use yydb::block_on;
 ///
 /// // Execute the future, blocking the current thread until completion
 /// block_on(async {
@@ -49,7 +49,7 @@ where
 /// # Examples
 ///
 /// ```
-/// use yengine::spawn;
+/// use yydb::spawn;
 ///
 /// spawn(async {
 ///     println!("now running on a worker thread");
@@ -93,7 +93,7 @@ mod tests {
                     super::spawn(async move {
                         let delay = rand::thread_rng().gen_range(0..=500);
                         tokio::time::sleep(Duration::from_millis(delay)).await;
-                        println!("Y-Engine async task: {} @ {:>3}ms", i, delay);
+                        println!("YYDB async task: {} @ {:>3}ms", i, delay);
                     })
                 })
                 .collect::<Vec<_>>();

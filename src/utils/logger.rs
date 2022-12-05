@@ -3,7 +3,7 @@ use once_cell::sync::OnceCell;
 
 static LOGGER: OnceCell<Logger> = OnceCell::new();
 
-/// Init the logger of Y-Engine.
+/// Init the logger of YYDB.
 pub(crate) fn init() {
     // an error will be returned if the logger was
     // already initialized. this situation is expected

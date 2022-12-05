@@ -1,8 +1,8 @@
 {
-  "name": "Y-Engine",
+  "name": "YYDB",
   "dockerComposeFile": "docker-compose.yaml",
-  "service": "yengine",
-  "workspaceFolder": "/Y-Engine",
+  "service": "yydb",
+  "workspaceFolder": "/YYDB",
   "extensions": [
     "rust-lang.rust-analyzer",
     "serayuzgur.crates",

@@ -16,10 +16,10 @@ pub fn rust_init() {
     utils::logger::init();
     core::runtime::init();
 
-    info!("Y-Engine Initialized.");
+    info!("YYDB Initialized.");
 }
 
 pub fn rust_deinit() {
     // do something
-    info!("Y-Engine Deinitialized.");
+    info!("YYDB Deinitialized.");
 }

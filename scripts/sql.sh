@@ -2,8 +2,6 @@
 
 # ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '';
 
-mysql -uroot -e "UNINSTALL PLUGIN yengine" || true
+mysql -uroot -e "UNINSTALL PLUGIN yydb" || true
 
-mysql -uroot -e "INSTALL PLUGIN yengine SONAME 'ha_yengine.so'"
-
-mysql -uroot < scripts/test.sql
+mysql -uroot -e "INSTALL PLUGIN yydb SONAME 'ha_yydb.so'"
