@@ -2,9 +2,7 @@ name: Build Library
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches: [ "*" ]
   workflow_dispatch:
 
 env:
@@ -34,6 +32,8 @@ jobs:
         path: |
           ~/mysql/
         key: ${{ runner.os }}-mysql
+        restore-keys: |
+          ${{ runner.os }}-mysql
 
     - name: Clone MySQL
       if: steps.mysql-cache.outputs.cache-hit != 'true'
@@ -41,7 +41,6 @@ jobs:
         git clone https://github.com/mysql/mysql-server.git --depth 1 --branch 8.0 /home/runner/mysql
 
     - name: Install Dependency
-      if: steps.apt-cache.outputs.cache-hit != 'true'
       run: |
         sudo apt-get update
         sudo apt-get install --no-install-recommends -y build-essential cmake bzip2 \
@@ -83,7 +82,7 @@ jobs:
         images: |
           gztime/mysql-yydb
         tags: |
-          latest,enable=true
+          latest,enable=${{ github.ref == 'refs/heads/main' }}
           type=semver,pattern={{raw}}
           type=sha,enable=true,priority=100,prefix=,suffix=,format=short
 

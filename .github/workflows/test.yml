@@ -1,0 +1,52 @@
+name: Test Library
+
+on:
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-20.04
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          target/
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-
+
+    - uses: actions/cache@v3
+      id: mysql-cache
+      with:
+        path: |
+          ~/mysql/
+        key: ${{ runner.os }}-mysql
+        restore-keys: |
+          ${{ runner.os }}-mysql
+
+    - name: Clone MySQL
+      if: steps.mysql-cache.outputs.cache-hit != 'true'
+      run: |
+        git clone https://github.com/mysql/mysql-server.git --depth 1 --branch 8.0 /home/runner/mysql
+
+    - name: Install Dependency
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y build-essential cmake bzip2 \
+          openssl perl xz-utils zstd libssl-dev zlib1g-dev libncurses-dev pkg-config libudev-dev
+
+    - name: Run Tests
+      run: cargo test -- --nocapture
+      env:
+        MYSQL_SOURCE_DIR: /home/runner/mysql
