@@ -121,7 +121,7 @@ static int yydb_init_func(void* p) {
     if(init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs))
         return 1;
 
-    __mysql_log(SYSTEM_LEVEL, "[Inf] Initializing Y-Enging storage engine...");
+    __mysql_log(SYSTEM_LEVEL, "[Inf] InitializingYYDB storage engine...");
 
     yydb_hton = (handlerton*)p;
     yydb_hton->state = SHOW_OPTION_YES;
@@ -136,7 +136,7 @@ static int yydb_init_func(void* p) {
 
 static int yydb_deinit_func(void *) {
     DBUG_TRACE;
-    __mysql_log(SYSTEM_LEVEL, "[Inf] Deinitializing Y-Enging storage engine...");
+    __mysql_log(SYSTEM_LEVEL, "[Inf] DeinitializingYYDB storage engine...");
 
     if(yydb::ha_yydb_core_deinit()) return 1;
 
