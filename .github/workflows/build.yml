@@ -83,7 +83,7 @@ jobs:
         images: |
           gztime/mysql-yydb
         tags: |
-          latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+          latest,enable=true
           type=semver,pattern={{raw}}
           type=sha,enable=true,priority=100,prefix=,suffix=,format=short
 
