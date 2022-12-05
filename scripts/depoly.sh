@@ -2,7 +2,7 @@
 
 set -xe
 
-if [[ -z "${MYSQL_SOURCE_DIR}" ]] ; then
+if [[ ! -n "${MYSQL_SOURCE_DIR+x}" ]] ; then
     echo "MYSQL_SOURCE_DIR is not set"
     exit 1
 fi
@@ -25,10 +25,10 @@ rm $MYSQL_SOURCE_DIR/bld/storage/yydb/libha_yydb.a || true
 rm $MYSQL_SOURCE_DIR/bld/storage/yydb/CMakeFiles/yydb.dir/*.o || true
 rm /usr/local/mysql/lib/plugin/ha_yydb.so || true
 
-if [[ -z "${NO_SOFT_LINK}" ]] ; then
-    COPY_CMD="ln -s"
-else
+if [[ -n "${NO_SOFT_LINK+x}" ]] ; then
     COPY_CMD="cp -f"
+else
+    COPY_CMD="ln -s"
 fi
 
 $COPY_CMD $WORK_DIR/include/*.h $DEST
