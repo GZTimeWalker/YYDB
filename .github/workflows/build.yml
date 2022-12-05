@@ -56,6 +56,9 @@ jobs:
       run: |
         ./scripts/depoly.sh
         ./scripts/build.sh
+        mkdir helper && \
+        cp /home/runner/mysql/bld/plugin_output_directory/ha_yydb.so helper && \
+        cp ./scripts/Dockerfile helper
       env:
         NO_INSTALL: true
         NO_SOFT_LINK: true
@@ -87,7 +90,7 @@ jobs:
     - name: Publish Image
       uses: docker/build-push-action@v3
       with:
-        context: ./scripts
+        context: ./helper
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         platforms: linux/amd64
