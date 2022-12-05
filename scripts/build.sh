@@ -19,6 +19,15 @@ cmake ..                             \
 -DWITH_INNOBASE_STORAGE_ENGINE=1     \
 -DDOWNLOAD_BOOST=1 -DWITH_BOOST=../boost
 
-make -j32 && make install
+if [[ $(nproc) -gt 32 ]] ; then
+    make -j32
+else
+    make -j$(nproc)
+fi
 
-echo "Done, MySQL with YYDB is installed!"
+if [[ -z "${NO_INSTALL}" ]] ; then
+    make install
+    echo "Done, MySQL with YYDB is installed!"
+else
+    echo "Done, MySQL with YYDB is built!"
+fi

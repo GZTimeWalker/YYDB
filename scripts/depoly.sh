@@ -25,13 +25,19 @@ rm $MYSQL_SOURCE_DIR/bld/storage/yydb/libha_yydb.a || true
 rm $MYSQL_SOURCE_DIR/bld/storage/yydb/CMakeFiles/yydb.dir/*.o || true
 rm /usr/local/mysql/lib/plugin/ha_yydb.so || true
 
-ln -s $WORK_DIR/include/*.h $DEST
-ln -s $WORK_DIR/src/handler/*.cc $DEST
+if [[ -z "${NO_SOFT_LINK}" ]] ; then
+    COPY_CMD="ln -s"
+else
+    COPY_CMD="cp -f"
+fi
+
+$COPY_CMD $WORK_DIR/include/*.h $DEST
+$COPY_CMD $WORK_DIR/src/handler/*.cc $DEST
 
 cargo build --release
 
-ln -s $WORK_DIR/target/release/libyydb.a $DEST
-ln -s $WORK_DIR/scripts/CMakeLists.txt $DEST
+$COPY_CMD $WORK_DIR/target/release/libyydb.a $DEST
+$COPY_CMD $WORK_DIR/scripts/CMakeLists.txt $DEST
 
 mkdir -p $MYSQL_SOURCE_DIR/bld
 
