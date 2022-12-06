@@ -313,7 +313,7 @@ int ha_yydb::write_row(uchar*) {
   clause was used. Consecutive ordering is not guaranteed.
 
   @details
-  Currently new_data will not have an updated auto_increament record. You can
+  Currently new_data will not have an updated auto_increment record. You can
   do this for yydb by doing:
 
   @code
