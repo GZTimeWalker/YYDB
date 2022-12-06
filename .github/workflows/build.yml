@@ -54,7 +54,7 @@ jobs:
 
     - name: Build Library
       run: |
-        ./scripts/depoly.sh
+        ./scripts/deploy.sh
         ./scripts/build.sh
         mkdir helper && \
         cp /home/runner/mysql/bld/plugin_output_directory/ha_yydb.so helper && \
