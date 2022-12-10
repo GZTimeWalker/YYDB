@@ -47,7 +47,7 @@ pub fn print_hex_view(buffer: &[u8]) {
         }
         println!("");
 
-        line_number += 16;
-        i += 16;
+        line_number += 32;
+        i += 32;
     }
 }

@@ -8,24 +8,21 @@ mysql -uroot -e "UNINSTALL PLUGIN yydb" || true
 
 mysql -uroot -e "INSTALL PLUGIN yydb SONAME 'ha_yydb.so'"
 
-mysql -uroot -e "CREATE DATABASE IF NOT EXISTS yydb"
+mysql -uroot -e "CREATE DATABASE IF NOT EXISTS testdb"
 
-mysql -uroot -e "DROP TABLE IF EXISTS yydb.test"
+mysql -uroot -e "DROP TABLE IF EXISTS testdb.test"
 
-mysql -uroot -e "CREATE TABLE IF NOT EXISTS yydb.test (
-    id INT NOT NULL AUTO_INCREMENT,
-    name VARCHAR(255) NOT NULL,
-    PRIMARY KEY (id)
+mysql -uroot -e "CREATE TABLE IF NOT EXISTS testdb.test (
+    id INT NOT NULL,
+    name VARCHAR(255) NOT NULL
 ) ENGINE=yydb"
 
-mysql -uroot -e "INSERT INTO yydb.test (id, name) VALUES
+mysql -uroot -e "INSERT INTO testdb.test (id, name) VALUES
     (1, 'test__1'),
-    (2, 'test__2'),
-    (3, 'test__3'),
     (4, 'test__4')"
 
-mysql -uroot -e "INSERT INTO yydb.test (name) VALUES ('test__8')"
+mysql -uroot -e "INSERT INTO testdb.test (id, name) VALUES (5, 'test__8')"
 
-mysql -uroot -e "UPDATE yydb.test SET name = 'test__5' WHERE id = 1"
+mysql -uroot -e "UPDATE testdb.test SET name = 'test__5'"
 
-mysql -uroot -e "SELECT * FROM yydb.test"
+mysql -uroot -e "SELECT * FROM testdb.test"
