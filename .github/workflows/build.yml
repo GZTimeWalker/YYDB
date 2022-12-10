@@ -48,7 +48,7 @@ jobs:
           openssl perl xz-utils zstd libssl-dev zlib1g-dev libncurses-dev pkg-config libudev-dev
 
     - name: Run Tests
-      run: cargo test -- --nocapture
+      run: cargo test
       env:
         MYSQL_SOURCE_DIR: /home/runner/mysql
 

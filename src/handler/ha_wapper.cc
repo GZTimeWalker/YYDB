@@ -176,13 +176,7 @@ static handler* yydb_create_handler(handlerton* hton, TABLE_SHARE* table,
 }
 
 ha_yydb::ha_yydb(handlerton* hton, TABLE_SHARE* table_arg)
-  : handler(hton, table_arg) {
-  DBUG_TRACE;
-
-  __mysql_log(SYSTEM_LEVEL, "[Inf] Creating a new YYDB handler...");
-
-  this->table_id = yydb::ha_yydb_open_table(table_arg->table_name.str);
-}
+  : handler(hton, table_arg) {}
 
 /*
   List of all system tables specific to the SE.
@@ -242,10 +236,10 @@ static bool yydb_is_supported_system_table(const char* db,
   handler::ha_open() in handler.cc
 */
 
-int ha_yydb::open(const char*, int, uint, const dd::Table*) {
+int ha_yydb::open(const char* name, int, uint, const dd::Table*) {
   DBUG_TRACE;
 
-  // table already opened
+  this->table_id = yydb::ha_yydb_open_table(name);
 
   if(!(share = get_share())) return 1;
   thr_lock_data_init(&share->lock, &lock, nullptr);
@@ -771,26 +765,16 @@ static MYSQL_THDVAR_UINT(create_count_thdvar, 0, nullptr, nullptr, nullptr, 0,
   ha_create_table() in handle.cc
 */
 
-int ha_yydb::create(const char* name, TABLE*, HA_CREATE_INFO*,
-  dd::Table*) {
+int ha_yydb::create(const char* name, TABLE*, HA_CREATE_INFO*, dd::Table*) {
   DBUG_TRACE;
-  /*
-    This is not implemented but we want someone to be able to see that it
-    works.
-  */
 
-  /*
-    It's just an yydb of THDVAR_SET() usage below.
-  */
-  THD* thd = ha_thd();
-  char* buf = (char*)my_malloc(PSI_NOT_INSTRUMENTED, SHOW_VAR_FUNC_BUFF_SIZE,
-    MYF(MY_FAE));
-  snprintf(buf, SHOW_VAR_FUNC_BUFF_SIZE, "Last creation '%s'", name);
-  THDVAR_SET(thd, last_create_thdvar, buf);
-  my_free(buf);
+  this->table_id = yydb::ha_yydb_open_table(name);
 
-  uint count = THDVAR(thd, create_count_thdvar) + 1;
-  THDVAR_SET(thd, create_count_thdvar, &count);
+  if (this->table_id == 0) {
+    return -1;
+  }
+
+  yydb::ha_yydb_close_table(this->table_id);
 
   return 0;
 }

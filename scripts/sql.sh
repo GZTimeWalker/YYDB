@@ -8,8 +8,10 @@ mysql -uroot -e "INSTALL PLUGIN yydb SONAME 'ha_yydb.so'"
 
 mysql -uroot -e "CREATE DATABASE IF NOT EXISTS yydb"
 
-mysql -uroot -e "CREATE TABLE IF NOT EXISTS yydb.test (id INT NOT NULL AUTO_INCREMENT, name VARCHAR(255), PRIMARY KEY (id)) ENGINE=yydb"
+mysql -uroot -e "DROP TABLE IF EXISTS yydb.test"
 
-mysql -uroot -e "INSERT INTO yydb.test (name) VALUES ('test')"
+mysql -uroot -e "CREATE TABLE IF NOT EXISTS yydb.test (id INT, name VARCHAR(255)) ENGINE=yydb"
 
-mysql -uroot -e "SELECT * FROM yydb.test"
+# mysql -uroot -e "INSERT INTO yydb.test (name) VALUES ('test')"
+
+# mysql -uroot -e "SELECT * FROM yydb.test"

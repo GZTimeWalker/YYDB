@@ -5,3 +5,4 @@
 **/.DS_Store
 nohup.out
 **/*.yyt
+.gdb_history

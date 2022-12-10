@@ -32,8 +32,6 @@ pub type OpResult = Result<(), TableError>;
 
 impl Table {
     pub fn open(table_name: &str) -> TableResult {
-        info!("Opening table: {}", table_name);
-
         let table_name = format!("{}{}", table_name, TABLE_FILE_SUFFIX);
 
         let file = File::create(&table_name)
