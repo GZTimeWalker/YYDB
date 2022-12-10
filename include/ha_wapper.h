@@ -47,10 +47,10 @@
 #include "thr_lock.h"    /* THR_LOCK, THR_LOCK_DATA */
 #include "yydb.h"
 
-  /** @brief
-    Example_share is a class that will be shared among all open handlers.
-    This yydb implements the minimum of what you will probably need.
-  */
+/** @brief
+  Example_share is a class that will be shared among all open handlers.
+  This yydb implements the minimum of what you will probably need.
+*/
 class Example_share : public Handler_share {
     public:
     THR_LOCK lock;
@@ -65,6 +65,7 @@ class ha_yydb : public handler {
     THR_LOCK_DATA lock;          ///< MySQL lock
     Example_share* share;        ///< Shared lock info
     Example_share* get_share();  ///< Get the share
+    std::uint64_t table_id = 0;      ///< Current row id
 
     public:
     ha_yydb(handlerton* hton, TABLE_SHARE* table_arg);

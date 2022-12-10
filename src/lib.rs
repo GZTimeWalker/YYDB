@@ -6,9 +6,8 @@ extern crate log;
 mod utils;
 
 mod bridge;
-mod core;
-
-pub use crate::core::*;
+pub mod core;
+mod structs;
 
 /// Init the rust part of the library, should be called
 /// from C++ code by Mysql plugin init function.

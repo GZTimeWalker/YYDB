@@ -32,4 +32,10 @@ namespace yydb {
     int ha_yydb_core_deinit();
 
     /* End of lifecycle */
+
+    /* Table */
+    uint64_t ha_yydb_open_table(const char* name);
+
+    void ha_yydb_close_table(uint64_t table_id);
+    /* End of table */
 }

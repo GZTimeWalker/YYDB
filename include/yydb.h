@@ -40,9 +40,15 @@ namespace yydb {
     extern int ha_yydb_core_init();
 
     /** @brief
-    Initialize the YYDB core.
+      Initialize the YYDB core.
     */
     extern int ha_yydb_core_deinit();
 
     /* End of lifecycle */
+
+    /* Table */
+    extern uint64_t ha_yydb_open_table(const char* name);
+
+    extern void ha_yydb_close_table(uint64_t table_id);
+    /* End of table */
 }

@@ -1,6 +1,12 @@
 use futures::Future;
 use once_cell::sync::OnceCell;
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 use tokio::task::JoinHandle;
+
+use crate::structs::table::{Table, TableId};
 
 static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 
@@ -9,12 +15,13 @@ static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 /// There will be only one runtime in the whole process.
 /// It is initialized in `rust_init` function, and hold
 /// by `RUNTIME` static variable.
-pub(crate) struct Runtime {
+pub struct Runtime {
     tokio_rt: tokio::runtime::Runtime,
+    tables: Mutex<BTreeMap<TableId, Arc<Table>>>,
 }
 
 /// Init the runtime of YYDB.
-pub(crate) fn init() {
+pub fn init() {
     Runtime::global();
     info!("Runtime Initialized.");
 }
@@ -25,7 +32,7 @@ pub(crate) fn init() {
 /// # Examples
 ///
 /// ```
-/// use yydb::block_on;
+/// use yydb::core::block_on;
 ///
 /// // Execute the future, blocking the current thread until completion
 /// block_on(async {
@@ -49,7 +56,7 @@ where
 /// # Examples
 ///
 /// ```
-/// use yydb::spawn;
+/// use yydb::core::spawn;
 ///
 /// spawn(async {
 ///     println!("now running on a worker thread");
@@ -64,6 +71,59 @@ where
     Runtime::global().tokio_rt.spawn(future)
 }
 
+/// Open a table by name.
+///
+/// # Examples
+///
+/// ```
+/// use yydb::core::open_table;
+///
+/// let id = open_table("test_table").unwrap();
+/// ```
+#[inline]
+pub fn open_table(table_name: &str) -> Option<TableId> {
+    if let Ok(table) = Table::open(table_name) {
+        let id = table.id();
+        Runtime::global().tables.lock().unwrap().insert(id, Arc::new(table));
+        Some(id)
+    } else {
+        None
+    }
+}
+
+/// Get a table by id.
+///
+/// # Examples
+///
+/// ```
+/// use yydb::core::{open_table, get_table};
+///
+/// let id = open_table("test_table").unwrap();
+/// let table = get_table(&id).unwrap();
+/// ```
+#[inline]
+pub fn get_table(id: &TableId) -> Option<Arc<Table>> {
+    Runtime::global().tables.lock().unwrap().get(id).cloned()
+}
+
+/// Close a table by id.
+///
+/// # Examples
+///
+/// ```
+/// use yydb::core::{open_table, close_table};
+///
+/// let id = open_table("test_table").unwrap();
+/// close_table(&id);
+/// ```
+#[inline]
+pub fn close_table(id: &TableId) {
+    if let Some(table) = get_table(id) {
+        table.close();
+        Runtime::global().tables.lock().unwrap().remove(&id);
+    }
+}
+
 impl Runtime {
     pub fn global() -> &'static Runtime {
         RUNTIME.get_or_init(|| {
@@ -74,6 +134,7 @@ impl Runtime {
 
             Runtime {
                 tokio_rt: rt,
+                tables: Mutex::new(BTreeMap::new()),
             }
         })
     }
@@ -86,7 +147,7 @@ mod tests {
     use std::time::Duration;
 
     #[test]
-    fn it_works() {
+    fn async_runtime_works() {
         super::block_on(async {
             let futures = (0..10)
                 .map(|i| {

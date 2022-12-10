@@ -29,4 +29,15 @@ namespace yydb {
     }
 
     /* End of lifecycle */
+
+    /* Table */
+    std::uint64_t ha_yydb_open_table(const char* name) {
+        rust::Str name_str(name);
+        return open_table(name_str);
+    }
+    
+    void ha_yydb_close_table(std::uint64_t table_id) {
+        close_table(table_id);
+    }
+    /* End of table */
 }

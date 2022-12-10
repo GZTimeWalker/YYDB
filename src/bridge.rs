@@ -1,4 +1,5 @@
 use crate::*;
+use crate::core::bridge::*;
 
 #[cxx::bridge(namespace = "yydb")]
 pub mod ffi {
@@ -9,6 +10,12 @@ pub mod ffi {
 
         // Deinit the rust part of the library.
         pub fn rust_deinit();
+
+        // Open a table by name.
+        pub fn open_table(table_name: &str) -> u64;
+
+        // close a table by id.
+        pub fn close_table(id: u64);
     }
 
     // C++ types and signatures exposed to Rust.

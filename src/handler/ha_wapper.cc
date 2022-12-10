@@ -96,6 +96,7 @@
 #include "yydb.h"
 #include "my_dbug.h"
 #include "mysql/plugin.h"
+#include "sql/table.h"
 #include "sql/sql_class.h"
 #include "sql/sql_plugin.h"
 #include "typelib.h"
@@ -105,43 +106,43 @@ SERVICE_TYPE(log_builtins)* log_bi = nullptr;
 SERVICE_TYPE(log_builtins_string)* log_bs = nullptr;
 
 static handler* yydb_create_handler(handlerton* hton, TABLE_SHARE* table,
-    bool partitioned, MEM_ROOT* mem_root);
+  bool partitioned, MEM_ROOT* mem_root);
 
 handlerton* yydb_hton;
 
 /* Interface to mysqld, to check system tables supported by SE */
 static bool yydb_is_supported_system_table(const char* db,
-    const char* table_name,
-    bool is_sql_layer_system_table);
+  const char* table_name,
+  bool is_sql_layer_system_table);
 
 Example_share::Example_share() { thr_lock_init(&lock); }
 
 static int yydb_init_func(void* p) {
-    DBUG_TRACE;
-    if(init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs))
-        return 1;
+  DBUG_TRACE;
+  if(init_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs))
+    return 1;
 
-    __mysql_log(SYSTEM_LEVEL, "[Inf] InitializingYYDB storage engine...");
+  __mysql_log(SYSTEM_LEVEL, "[Inf] Initializing YYDB storage engine...");
 
-    yydb_hton = (handlerton*)p;
-    yydb_hton->state = SHOW_OPTION_YES;
-    yydb_hton->create = yydb_create_handler;
-    yydb_hton->flags = HTON_CAN_RECREATE;
-    yydb_hton->is_supported_system_table = yydb_is_supported_system_table;
+  yydb_hton = (handlerton*)p;
+  yydb_hton->state = SHOW_OPTION_YES;
+  yydb_hton->create = yydb_create_handler;
+  yydb_hton->flags = HTON_CAN_RECREATE;
+  yydb_hton->is_supported_system_table = yydb_is_supported_system_table;
 
-    if(yydb::ha_yydb_core_init()) return 1;
+  if(yydb::ha_yydb_core_init()) return 1;
 
-    return 0;
+  return 0;
 }
 
-static int yydb_deinit_func(void *) {
-    DBUG_TRACE;
-    __mysql_log(SYSTEM_LEVEL, "[Inf] DeinitializingYYDB storage engine...");
+static int yydb_deinit_func(void*) {
+  DBUG_TRACE;
+  __mysql_log(SYSTEM_LEVEL, "[Inf] Deinitializing YYDB storage engine...");
 
-    if(yydb::ha_yydb_core_deinit()) return 1;
+  if(yydb::ha_yydb_core_deinit()) return 1;
 
-    deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
-    return 0;
+  deinit_logging_service_for_plugin(&reg_srv, &log_bi, &log_bs);
+  return 0;
 }
 
 /**
@@ -153,29 +154,31 @@ static int yydb_deinit_func(void *) {
 */
 
 Example_share* ha_yydb::get_share() {
-    Example_share* tmp_share;
+  Example_share* tmp_share;
 
-    DBUG_TRACE;
+  DBUG_TRACE;
 
-    lock_shared_ha_data();
-    if(!(tmp_share = static_cast<Example_share*>(get_ha_share_ptr()))) {
-        tmp_share = new Example_share;
-        if(!tmp_share) goto err;
+  lock_shared_ha_data();
+  if(!(tmp_share = static_cast<Example_share*>(get_ha_share_ptr()))) {
+    tmp_share = new Example_share;
+    if(!tmp_share) goto err;
 
-        set_ha_share_ptr(static_cast<Handler_share*>(tmp_share));
-    }
+    set_ha_share_ptr(static_cast<Handler_share*>(tmp_share));
+  }
 err:
-    unlock_shared_ha_data();
-    return tmp_share;
+  unlock_shared_ha_data();
+  return tmp_share;
 }
 
 static handler* yydb_create_handler(handlerton* hton, TABLE_SHARE* table,
-    bool, MEM_ROOT* mem_root) {
-    return new (mem_root) ha_yydb(hton, table);
+  bool, MEM_ROOT* mem_root) {
+  return new (mem_root) ha_yydb(hton, table);
 }
 
 ha_yydb::ha_yydb(handlerton* hton, TABLE_SHARE* table_arg)
-    : handler(hton, table_arg) {}
+  : handler(hton, table_arg) {
+  this->table_id = yydb::ha_yydb_open_table(table_arg->table_name.str);
+}
 
 /*
   List of all system tables specific to the SE.
@@ -201,22 +204,22 @@ static st_handler_tablename ha_yydb_system_tables[] = {
   @retval false  Given db.table_name is not a supported system table.
 */
 static bool yydb_is_supported_system_table(const char* db,
-    const char* table_name,
-    bool is_sql_layer_system_table) {
-    st_handler_tablename* systab;
+  const char* table_name,
+  bool is_sql_layer_system_table) {
+  st_handler_tablename* systab;
 
-    // Does this SE support "ALL" SQL layer system tables ?
-    if(is_sql_layer_system_table) return false;
+  // Does this SE support "ALL" SQL layer system tables ?
+  if(is_sql_layer_system_table) return false;
 
-    // Check if this is SE layer system tables
-    systab = ha_yydb_system_tables;
-    while(systab && systab->db) {
-        if(systab->db == db && strcmp(systab->tablename, table_name) == 0)
-            return true;
-        systab++;
-    }
+  // Check if this is SE layer system tables
+  systab = ha_yydb_system_tables;
+  while(systab && systab->db) {
+    if(systab->db == db && strcmp(systab->tablename, table_name) == 0)
+      return true;
+    systab++;
+  }
 
-    return false;
+  return false;
 }
 
 /**
@@ -236,12 +239,14 @@ static bool yydb_is_supported_system_table(const char* db,
 */
 
 int ha_yydb::open(const char*, int, uint, const dd::Table*) {
-    DBUG_TRACE;
+  DBUG_TRACE;
 
-    if(!(share = get_share())) return 1;
-    thr_lock_data_init(&share->lock, &lock, nullptr);
+  // table already opened
 
-    return 0;
+  if(!(share = get_share())) return 1;
+  thr_lock_data_init(&share->lock, &lock, nullptr);
+
+  return 0;
 }
 
 /**
@@ -260,8 +265,13 @@ int ha_yydb::open(const char*, int, uint, const dd::Table*) {
 */
 
 int ha_yydb::close(void) {
-    DBUG_TRACE;
-    return 0;
+  DBUG_TRACE;
+
+  if (!this->table_id) {
+    yydb::ha_yydb_close_table(this->table_id);
+  }
+
+  return 0;
 }
 
 /**
@@ -295,14 +305,14 @@ int ha_yydb::close(void) {
 */
 
 int ha_yydb::write_row(uchar*) {
-    DBUG_TRACE;
-    /*
-      Example of a successful write_row. We don't store the data
-      anywhere; they are thrown away. A real implementation will
-      probably need to do something with 'buf'. We report a success
-      here, to pretend that the insert was successful.
-    */
-    return 0;
+  DBUG_TRACE;
+  /*
+    Example of a successful write_row. We don't store the data
+    anywhere; they are thrown away. A real implementation will
+    probably need to do something with 'buf'. We report a success
+    here, to pretend that the insert was successful.
+  */
+  return 0;
 }
 
 /**
@@ -329,8 +339,8 @@ int ha_yydb::write_row(uchar*) {
   sql_select.cc, sql_acl.cc, sql_update.cc and sql_insert.cc
 */
 int ha_yydb::update_row(const uchar*, uchar*) {
-    DBUG_TRACE;
-    return HA_ERR_WRONG_COMMAND;
+  DBUG_TRACE;
+  return HA_ERR_WRONG_COMMAND;
 }
 
 /**
@@ -354,8 +364,8 @@ int ha_yydb::update_row(const uchar*, uchar*) {
 */
 
 int ha_yydb::delete_row(const uchar*) {
-    DBUG_TRACE;
-    return HA_ERR_WRONG_COMMAND;
+  DBUG_TRACE;
+  return HA_ERR_WRONG_COMMAND;
 }
 
 /**
@@ -366,11 +376,11 @@ int ha_yydb::delete_row(const uchar*) {
 */
 
 int ha_yydb::index_read_map(uchar*, const uchar*, key_part_map,
-    enum ha_rkey_function) {
-    int rc;
-    DBUG_TRACE;
-    rc = HA_ERR_WRONG_COMMAND;
-    return rc;
+  enum ha_rkey_function) {
+  int rc;
+  DBUG_TRACE;
+  rc = HA_ERR_WRONG_COMMAND;
+  return rc;
 }
 
 /**
@@ -379,10 +389,10 @@ int ha_yydb::index_read_map(uchar*, const uchar*, key_part_map,
 */
 
 int ha_yydb::index_next(uchar*) {
-    int rc;
-    DBUG_TRACE;
-    rc = HA_ERR_WRONG_COMMAND;
-    return rc;
+  int rc;
+  DBUG_TRACE;
+  rc = HA_ERR_WRONG_COMMAND;
+  return rc;
 }
 
 /**
@@ -391,10 +401,10 @@ int ha_yydb::index_next(uchar*) {
 */
 
 int ha_yydb::index_prev(uchar*) {
-    int rc;
-    DBUG_TRACE;
-    rc = HA_ERR_WRONG_COMMAND;
-    return rc;
+  int rc;
+  DBUG_TRACE;
+  rc = HA_ERR_WRONG_COMMAND;
+  return rc;
 }
 
 /**
@@ -408,10 +418,10 @@ int ha_yydb::index_prev(uchar*) {
   opt_range.cc, opt_sum.cc, sql_handler.cc and sql_select.cc
 */
 int ha_yydb::index_first(uchar*) {
-    int rc;
-    DBUG_TRACE;
-    rc = HA_ERR_WRONG_COMMAND;
-    return rc;
+  int rc;
+  DBUG_TRACE;
+  rc = HA_ERR_WRONG_COMMAND;
+  return rc;
 }
 
 /**
@@ -425,10 +435,10 @@ int ha_yydb::index_first(uchar*) {
   opt_range.cc, opt_sum.cc, sql_handler.cc and sql_select.cc
 */
 int ha_yydb::index_last(uchar*) {
-    int rc;
-    DBUG_TRACE;
-    rc = HA_ERR_WRONG_COMMAND;
-    return rc;
+  int rc;
+  DBUG_TRACE;
+  rc = HA_ERR_WRONG_COMMAND;
+  return rc;
 }
 
 /**
@@ -446,13 +456,13 @@ int ha_yydb::index_last(uchar*) {
   sql_update.cc
 */
 int ha_yydb::rnd_init(bool) {
-    DBUG_TRACE;
-    return 0;
+  DBUG_TRACE;
+  return 0;
 }
 
 int ha_yydb::rnd_end() {
-    DBUG_TRACE;
-    return 0;
+  DBUG_TRACE;
+  return 0;
 }
 
 /**
@@ -471,10 +481,10 @@ int ha_yydb::rnd_end() {
   sql_update.cc
 */
 int ha_yydb::rnd_next(uchar*) {
-    int rc;
-    DBUG_TRACE;
-    rc = HA_ERR_END_OF_FILE;
-    return rc;
+  int rc;
+  DBUG_TRACE;
+  rc = HA_ERR_END_OF_FILE;
+  return rc;
 }
 
 /**
@@ -515,10 +525,10 @@ void ha_yydb::position(const uchar*) { DBUG_TRACE; }
   filesort.cc, records.cc, sql_insert.cc, sql_select.cc and sql_update.cc
 */
 int ha_yydb::rnd_pos(uchar*, uchar*) {
-    int rc;
-    DBUG_TRACE;
-    rc = HA_ERR_WRONG_COMMAND;
-    return rc;
+  int rc;
+  DBUG_TRACE;
+  rc = HA_ERR_WRONG_COMMAND;
+  return rc;
 }
 
 /**
@@ -560,8 +570,8 @@ int ha_yydb::rnd_pos(uchar*, uchar*) {
   sql_show.cc, sql_table.cc, sql_union.cc and sql_update.cc
 */
 int ha_yydb::info(uint) {
-    DBUG_TRACE;
-    return 0;
+  DBUG_TRACE;
+  return 0;
 }
 
 /**
@@ -574,8 +584,8 @@ int ha_yydb::info(uint) {
   ha_innodb.cc
 */
 int ha_yydb::extra(enum ha_extra_function) {
-    DBUG_TRACE;
-    return 0;
+  DBUG_TRACE;
+  return 0;
 }
 
 /**
@@ -599,8 +609,8 @@ int ha_yydb::extra(enum ha_extra_function) {
   st_query_block_query_expression::exec() in sql_union.cc.
 */
 int ha_yydb::delete_all_rows() {
-    DBUG_TRACE;
-    return HA_ERR_WRONG_COMMAND;
+  DBUG_TRACE;
+  return HA_ERR_WRONG_COMMAND;
 }
 
 /**
@@ -621,8 +631,8 @@ int ha_yydb::delete_all_rows() {
   copy_data_between_tables() in sql_table.cc.
 */
 int ha_yydb::external_lock(THD*, int) {
-    DBUG_TRACE;
-    return 0;
+  DBUG_TRACE;
+  return 0;
 }
 
 /**
@@ -663,10 +673,10 @@ int ha_yydb::external_lock(THD*, int) {
   get_lock_data() in lock.cc
 */
 THR_LOCK_DATA** ha_yydb::store_lock(THD*, THR_LOCK_DATA** to,
-    enum thr_lock_type lock_type) {
-    if(lock_type != TL_IGNORE && lock.type == TL_UNLOCK) lock.type = lock_type;
-    *to++ = &lock;
-    return to;
+  enum thr_lock_type lock_type) {
+  if(lock_type != TL_IGNORE && lock.type == TL_UNLOCK) lock.type = lock_type;
+  *to++ = &lock;
+  return to;
 }
 
 /**
@@ -689,9 +699,9 @@ THR_LOCK_DATA** ha_yydb::store_lock(THD*, THR_LOCK_DATA** to,
   delete_table and ha_create_table() in handler.cc
 */
 int ha_yydb::delete_table(const char*, const dd::Table*) {
-    DBUG_TRACE;
-    /* This is not implemented but we want someone to be able that it works. */
-    return 0;
+  DBUG_TRACE;
+  /* This is not implemented but we want someone to be able that it works. */
+  return 0;
 }
 
 /**
@@ -709,9 +719,9 @@ int ha_yydb::delete_table(const char*, const dd::Table*) {
   mysql_rename_table() in sql_table.cc
 */
 int ha_yydb::rename_table(const char*, const char*, const dd::Table*,
-    dd::Table*) {
-    DBUG_TRACE;
-    return HA_ERR_WRONG_COMMAND;
+  dd::Table*) {
+  DBUG_TRACE;
+  return HA_ERR_WRONG_COMMAND;
 }
 
 /**
@@ -728,15 +738,15 @@ int ha_yydb::rename_table(const char*, const char*, const dd::Table*,
   check_quick_keys() in opt_range.cc
 */
 ha_rows ha_yydb::records_in_range(uint, key_range*, key_range*) {
-    DBUG_TRACE;
-    return 10;  // low number to force index usage
+  DBUG_TRACE;
+  return 10;  // low number to force index usage
 }
 
 static MYSQL_THDVAR_STR(last_create_thdvar, PLUGIN_VAR_MEMALLOC, nullptr,
-    nullptr, nullptr, nullptr);
+  nullptr, nullptr, nullptr);
 
 static MYSQL_THDVAR_UINT(create_count_thdvar, 0, nullptr, nullptr, nullptr, 0,
-    0, 1000, 0);
+  0, 1000, 0);
 
 /**
   @brief
@@ -758,27 +768,27 @@ static MYSQL_THDVAR_UINT(create_count_thdvar, 0, nullptr, nullptr, nullptr, 0,
 */
 
 int ha_yydb::create(const char* name, TABLE*, HA_CREATE_INFO*,
-    dd::Table*) {
-    DBUG_TRACE;
-    /*
-      This is not implemented but we want someone to be able to see that it
-      works.
-    */
+  dd::Table*) {
+  DBUG_TRACE;
+  /*
+    This is not implemented but we want someone to be able to see that it
+    works.
+  */
 
-    /*
-      It's just an yydb of THDVAR_SET() usage below.
-    */
-    THD* thd = ha_thd();
-    char* buf = (char*)my_malloc(PSI_NOT_INSTRUMENTED, SHOW_VAR_FUNC_BUFF_SIZE,
-        MYF(MY_FAE));
-    snprintf(buf, SHOW_VAR_FUNC_BUFF_SIZE, "Last creation '%s'", name);
-    THDVAR_SET(thd, last_create_thdvar, buf);
-    my_free(buf);
+  /*
+    It's just an yydb of THDVAR_SET() usage below.
+  */
+  THD* thd = ha_thd();
+  char* buf = (char*)my_malloc(PSI_NOT_INSTRUMENTED, SHOW_VAR_FUNC_BUFF_SIZE,
+    MYF(MY_FAE));
+  snprintf(buf, SHOW_VAR_FUNC_BUFF_SIZE, "Last creation '%s'", name);
+  THDVAR_SET(thd, last_create_thdvar, buf);
+  my_free(buf);
 
-    uint count = THDVAR(thd, create_count_thdvar) + 1;
-    THDVAR_SET(thd, create_count_thdvar, &count);
+  uint count = THDVAR(thd, create_count_thdvar) + 1;
+  THDVAR_SET(thd, create_count_thdvar, &count);
 
-    return 0;
+  return 0;
 }
 
 struct st_mysql_storage_engine yydb_storage_engine = {
@@ -797,49 +807,49 @@ TYPELIB enum_var_typelib = { array_elements(enum_var_names) - 1,
                             "enum_var_typelib", enum_var_names, nullptr };
 
 static MYSQL_SYSVAR_ENUM(enum_var,                        // name
-    srv_enum_var,                    // varname
-    PLUGIN_VAR_RQCMDARG,             // opt
-    "Sample ENUM system variable.",  // comment
-    nullptr,                         // check
-    nullptr,                         // update
-    0,                               // def
-    &enum_var_typelib);              // typelib
+  srv_enum_var,                    // varname
+  PLUGIN_VAR_RQCMDARG,             // opt
+  "Sample ENUM system variable.",  // comment
+  nullptr,                         // check
+  nullptr,                         // update
+  0,                               // def
+  &enum_var_typelib);              // typelib
 
 static MYSQL_SYSVAR_ULONG(ulong_var, srv_ulong_var, PLUGIN_VAR_RQCMDARG,
-    "0..1000", nullptr, nullptr, 8, 0, 1000, 0);
+  "0..1000", nullptr, nullptr, 8, 0, 1000, 0);
 
 static MYSQL_SYSVAR_DOUBLE(double_var, srv_double_var, PLUGIN_VAR_RQCMDARG,
-    "0.500000..1000.500000", nullptr, nullptr, 8.5, 0.5,
-    1000.5,
-    0);  // reserved always 0
+  "0.500000..1000.500000", nullptr, nullptr, 8.5, 0.5,
+  1000.5,
+  0);  // reserved always 0
 
 static MYSQL_THDVAR_DOUBLE(double_thdvar, PLUGIN_VAR_RQCMDARG,
-    "0.500000..1000.500000", nullptr, nullptr, 8.5, 0.5,
-    1000.5, 0);
+  "0.500000..1000.500000", nullptr, nullptr, 8.5, 0.5,
+  1000.5, 0);
 
 static MYSQL_SYSVAR_INT(signed_int_var, srv_signed_int_var, PLUGIN_VAR_RQCMDARG,
-    "INT_MIN..INT_MAX", nullptr, nullptr, -10, INT_MIN,
-    INT_MAX, 0);
+  "INT_MIN..INT_MAX", nullptr, nullptr, -10, INT_MIN,
+  INT_MAX, 0);
 
 static MYSQL_THDVAR_INT(signed_int_thdvar, PLUGIN_VAR_RQCMDARG,
-    "INT_MIN..INT_MAX", nullptr, nullptr, -10, INT_MIN,
-    INT_MAX, 0);
+  "INT_MIN..INT_MAX", nullptr, nullptr, -10, INT_MIN,
+  INT_MAX, 0);
 
 static MYSQL_SYSVAR_LONG(signed_long_var, srv_signed_long_var,
-    PLUGIN_VAR_RQCMDARG, "LONG_MIN..LONG_MAX", nullptr,
-    nullptr, -10, LONG_MIN, LONG_MAX, 0);
+  PLUGIN_VAR_RQCMDARG, "LONG_MIN..LONG_MAX", nullptr,
+  nullptr, -10, LONG_MIN, LONG_MAX, 0);
 
 static MYSQL_THDVAR_LONG(signed_long_thdvar, PLUGIN_VAR_RQCMDARG,
-    "LONG_MIN..LONG_MAX", nullptr, nullptr, -10, LONG_MIN,
-    LONG_MAX, 0);
+  "LONG_MIN..LONG_MAX", nullptr, nullptr, -10, LONG_MIN,
+  LONG_MAX, 0);
 
 static MYSQL_SYSVAR_LONGLONG(signed_longlong_var, srv_signed_longlong_var,
-    PLUGIN_VAR_RQCMDARG, "LLONG_MIN..LLONG_MAX",
-    nullptr, nullptr, -10, LLONG_MIN, LLONG_MAX, 0);
+  PLUGIN_VAR_RQCMDARG, "LLONG_MIN..LLONG_MAX",
+  nullptr, nullptr, -10, LLONG_MIN, LLONG_MAX, 0);
 
 static MYSQL_THDVAR_LONGLONG(signed_longlong_thdvar, PLUGIN_VAR_RQCMDARG,
-    "LLONG_MIN..LLONG_MAX", nullptr, nullptr, -10,
-    LLONG_MIN, LLONG_MAX, 0);
+  "LLONG_MIN..LLONG_MAX", nullptr, nullptr, -10,
+  LLONG_MIN, LLONG_MAX, 0);
 
 static SYS_VAR* yydb_system_variables[] = {
     MYSQL_SYSVAR(enum_var),
@@ -858,24 +868,24 @@ static SYS_VAR* yydb_system_variables[] = {
 
 // this is an yydb of SHOW_FUNC
 static int show_func_yydb(MYSQL_THD, SHOW_VAR* var, char* buf) {
-    var->type = SHOW_CHAR;
-    var->value = buf;  // it's of SHOW_VAR_FUNC_BUFF_SIZE bytes
-    snprintf(buf, SHOW_VAR_FUNC_BUFF_SIZE,
-        "enum_var is %lu, ulong_var is %lu, "
-        "double_var is %f, signed_int_var is %d, "
-        "signed_long_var is %ld, signed_longlong_var is %lld",
-        srv_enum_var, srv_ulong_var, srv_double_var, srv_signed_int_var,
-        srv_signed_long_var, srv_signed_longlong_var);
-    return 0;
+  var->type = SHOW_CHAR;
+  var->value = buf;  // it's of SHOW_VAR_FUNC_BUFF_SIZE bytes
+  snprintf(buf, SHOW_VAR_FUNC_BUFF_SIZE,
+    "enum_var is %lu, ulong_var is %lu, "
+    "double_var is %f, signed_int_var is %d, "
+    "signed_long_var is %ld, signed_longlong_var is %lld",
+    srv_enum_var, srv_ulong_var, srv_double_var, srv_signed_int_var,
+    srv_signed_long_var, srv_signed_longlong_var);
+  return 0;
 }
 
 struct yydb_vars_t {
-    ulong var1;
-    double var2;
-    char var3[64];
-    bool var4;
-    bool var5;
-    ulong var6;
+  ulong var1;
+  double var2;
+  char var3[64];
+  bool var4;
+  bool var5;
+  ulong var6;
 };
 
 yydb_vars_t yydb_vars = { 100, 20.01, "three hundred", true, false, 8250 };
@@ -906,18 +916,18 @@ static SHOW_VAR func_status[] = {
 
 
 mysql_declare_plugin(yydb) {
-    MYSQL_STORAGE_ENGINE_PLUGIN,
-        & yydb_storage_engine,
-        "yydb",
-        "GZTime, Zhengty, cychester, chengy-sysu",
-        "YYDB storage engine",
-        PLUGIN_LICENSE_GPL,
-        yydb_init_func, /* Plugin Init */
-        nullptr,           /* Plugin check uninstall */
-        yydb_deinit_func,      /* Plugin Deinit */
-        0x0001 /* 0.1 */,
-        func_status,              /* status variables */
-        yydb_system_variables, /* system variables */
-        nullptr,                  /* config options */
-        0,                        /* flags */
+  MYSQL_STORAGE_ENGINE_PLUGIN,
+    & yydb_storage_engine,
+    "yydb",
+    "GZTime, Zhengty, cychester, chengy-sysu",
+    "YYDB storage engine",
+    PLUGIN_LICENSE_GPL,
+    yydb_init_func, /* Plugin Init */
+    nullptr,           /* Plugin check uninstall */
+    yydb_deinit_func,      /* Plugin Deinit */
+    0x0001 /* 0.1 */,
+    func_status,              /* status variables */
+    yydb_system_variables, /* system variables */
+    nullptr,                  /* config options */
+    0,                        /* flags */
 } mysql_declare_plugin_end;
