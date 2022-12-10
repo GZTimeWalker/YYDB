@@ -177,6 +177,10 @@ static handler* yydb_create_handler(handlerton* hton, TABLE_SHARE* table,
 
 ha_yydb::ha_yydb(handlerton* hton, TABLE_SHARE* table_arg)
   : handler(hton, table_arg) {
+  DBUG_TRACE;
+
+  __mysql_log(SYSTEM_LEVEL, "[Inf] Creating a new YYDB handler...");
+
   this->table_id = yydb::ha_yydb_open_table(table_arg->table_name.str);
 }
 

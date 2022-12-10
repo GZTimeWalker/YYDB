@@ -19,8 +19,7 @@ fn main() {
         .include("include")
         .include("include/mysql")
         .include(&mysql_src)
-        .include(format!("{}/include", &mysql_src))
-        .include(format!("{}/extra/rapidjson/include", &mysql_src));
+        .include(format!("{}/include", &mysql_src));
 
     if profile == "debug" {
         build

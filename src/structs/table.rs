@@ -46,6 +46,7 @@ impl Table {
     }
 
     pub fn close(&self) {
+        info!("Closing table: {}", self.name);
         self.file.sync_all().unwrap();
     }
 

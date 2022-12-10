@@ -35,7 +35,7 @@ namespace yydb {
         rust::Str name_str(name);
         return open_table(name_str);
     }
-    
+
     void ha_yydb_close_table(std::uint64_t table_id) {
         close_table(table_id);
     }
