@@ -40,8 +40,12 @@ namespace yydb {
         close_table(table_id);
     }
 
-    void ha_yydb_insert_row(uint64_t table_id, const unsigned char* row, uint length) {
+    void ha_yydb_insert_row(uint64_t table_id, const u_char* row, uint length) {
         insert_row(table_id, (const uint8_t*)row, length);
+    }
+
+    void ha_yydb_update_row(uint64_t table_id, const u_char* old, const u_char* row, uint length) {
+        update_row(table_id, (const uint8_t*)old, (const uint8_t*)row, length);
     }
     /* End of table */
 }

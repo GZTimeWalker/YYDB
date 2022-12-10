@@ -19,6 +19,9 @@ pub mod ffi {
 
         // insert a row to a table.
         pub unsafe fn insert_row(table_id: u64, row: *const u8, len: u32);
+
+        // update a row to a table.
+        pub unsafe fn update_row(table_id: u64, row: *const u8, new_row: *const u8, len: u32);
     }
 
     // C++ types and signatures exposed to Rust.
