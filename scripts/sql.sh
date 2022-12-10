@@ -12,6 +12,6 @@ mysql -uroot -e "DROP TABLE IF EXISTS yydb.test"
 
 mysql -uroot -e "CREATE TABLE IF NOT EXISTS yydb.test (id INT, name VARCHAR(255)) ENGINE=yydb"
 
-# mysql -uroot -e "INSERT INTO yydb.test (name) VALUES ('test')"
+mysql -uroot -e "INSERT INTO yydb.test (id, name) VALUES (233, 'test')"
 
 # mysql -uroot -e "SELECT * FROM yydb.test"

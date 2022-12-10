@@ -302,7 +302,7 @@ int ha_yydb::close(void) {
   sql_insert.cc, sql_select.cc, sql_table.cc, sql_udf.cc and sql_update.cc
 */
 
-int ha_yydb::write_row(uchar*) {
+int ha_yydb::write_row(uchar* data) {
   DBUG_TRACE;
   /*
     Example of a successful write_row. We don't store the data
@@ -310,6 +310,10 @@ int ha_yydb::write_row(uchar*) {
     probably need to do something with 'buf'. We report a success
     here, to pretend that the insert was successful.
   */
+  ha_statistic_increment(&System_status_var::ha_write_count);
+
+  yydb::ha_yydb_insert_row(this->table_id, data, this->table->s->rec_buff_length);
+
   return 0;
 }
 

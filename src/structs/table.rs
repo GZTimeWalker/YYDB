@@ -34,6 +34,8 @@ impl Table {
     pub fn open(table_name: &str) -> TableResult {
         let table_name = format!("{}{}", table_name, TABLE_FILE_SUFFIX);
 
+        info!("Opening table: {}", table_name);
+
         let file = File::create(&table_name)
             .map_err(|_| TableError::FileCreateError)?;
         Ok(Table {

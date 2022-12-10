@@ -39,5 +39,9 @@ namespace yydb {
     void ha_yydb_close_table(std::uint64_t table_id) {
         close_table(table_id);
     }
+
+    void ha_yydb_insert_row(uint64_t table_id, const unsigned char* row, uint length) {
+        insert_row(table_id, (const uint8_t*)row, length);
+    }
     /* End of table */
 }

@@ -37,5 +37,7 @@ namespace yydb {
     uint64_t ha_yydb_open_table(const char* name);
 
     void ha_yydb_close_table(uint64_t table_id);
+
+    void ha_yydb_insert_row(uint64_t table_id, const unsigned char* row, uint length);
     /* End of table */
 }
