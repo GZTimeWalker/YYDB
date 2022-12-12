@@ -1,8 +1,8 @@
-use std::collections::BTreeMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, Arc};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::fs::File;
 use super::*;
+use super::mem::MemTable;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct TableId(pub u64);
@@ -18,7 +18,7 @@ impl TableId {
 pub struct Table {
     id: TableId,
     name: String,
-    mem: Mutex<BTreeMap<u64, Vec<u8>>>
+    mem: Mutex<MemTable>
 }
 
 #[derive(Debug, PartialEq)]
@@ -42,7 +42,7 @@ impl Table {
         Ok(Table {
             id: TableId::new(),
             name: table_name,
-            mem: Mutex::new(BTreeMap::new())
+            mem: Mutex::new(MemTable::new())
          })
     }
 
@@ -54,14 +54,29 @@ impl Table {
         &self.name
     }
 
-    pub fn get(&self, key: u64) -> Option<Vec<u8>> {
-        let mem = self.mem.lock().unwrap();
-        mem.get(&key).map(|v| v.clone())
+    pub fn get(&self, key: u64) -> Option<Arc<Vec<u8>>> {
+        self.mem.lock().unwrap().get(key)
     }
 
     pub fn set(&self, key: u64, value: Vec<u8>) {
-        let mut mem = self.mem.lock().unwrap();
-        mem.insert(key, value);
+        self.mem.lock().unwrap().set(key, value);
+    }
+
+    pub fn delete(&self, key: u64) {
+        self.mem.lock().unwrap().delete(key);
+    }
+
+    pub fn read_init(&self) {
+        self.mem.lock().unwrap().init_iter();
+    }
+
+    pub fn read_end(&self) {
+        self.mem.lock().unwrap().end_iter();
+    }
+
+    pub unsafe fn read_next(&self, buf: *mut u8, len: u32) -> i32 {
+        debug!("Reading next value from table: {}", self.name);
+        self.mem.lock().unwrap().next(buf, len as usize)
     }
 }
 

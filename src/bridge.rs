@@ -23,6 +23,18 @@ pub mod ffi {
         // update a row to a table.
         pub unsafe fn update_row(table_id: u64, key: u64, data: *const u8, new_data: *const u8, len: u32);
 
+        // delete a row to a table.
+        pub unsafe fn delete_row(table_id: u64, key: u64);
+
+        // init round
+        pub fn rnd_init(table_id: u64);
+
+        // end round
+        pub fn rnd_end(table_id: u64);
+
+        // read next row
+        pub unsafe fn rnd_next(table_id: u64, buf: *mut u8, len: u32) -> i32;
+
         // put hex data to log
         pub unsafe fn put_hex(data: *const u8, len: u32);
     }

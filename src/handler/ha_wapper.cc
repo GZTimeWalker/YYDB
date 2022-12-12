@@ -241,6 +241,7 @@ int ha_yydb::open(const char* name, int, uint, const dd::Table*) {
     DBUG_TRACE;
 
     this->table_id = yydb::ha_yydb_open_table(name);
+    this->table_id = 1;
 
     if(!(share = get_share())) return 1;
     thr_lock_data_init(&share->lock, &lock, nullptr);
@@ -384,7 +385,9 @@ int ha_yydb::update_row(const uchar* old_data, uchar* new_data) {
 
 int ha_yydb::delete_row(const uchar*) {
     DBUG_TRACE;
-    return HA_ERR_WRONG_COMMAND;
+    std::uint64_t row_pk = get_row_pk();
+    yydb::delete_row(this->table_id, row_pk);
+    return 0;
 }
 
 /**
@@ -476,11 +479,14 @@ int ha_yydb::index_last(uchar*) {
 */
 int ha_yydb::rnd_init(bool) {
     DBUG_TRACE;
+    ref_length = sizeof(long long);
+    yydb::rnd_init(this->table_id);
     return 0;
 }
 
 int ha_yydb::rnd_end() {
     DBUG_TRACE;
+    yydb::rnd_end(this->table_id);
     return 0;
 }
 
@@ -499,11 +505,14 @@ int ha_yydb::rnd_end() {
   filesort.cc, records.cc, sql_handler.cc, sql_select.cc, sql_table.cc and
   sql_update.cc
 */
-int ha_yydb::rnd_next(uchar*) {
-    int rc;
+int ha_yydb::rnd_next(uchar* buf) {
     DBUG_TRACE;
-    rc = HA_ERR_END_OF_FILE;
-    return rc;
+    ha_statistic_increment(&System_status_var::ha_read_rnd_next_count);
+    if(yydb::ha_yydb_rnd_next(this->table_id, buf, table->s->rec_buff_length)) {
+        return 0;
+    } else {
+        return HA_ERR_END_OF_FILE;
+    }
 }
 
 /**
@@ -527,7 +536,13 @@ int ha_yydb::rnd_next(uchar*) {
   @see
   filesort.cc, sql_select.cc, sql_delete.cc and sql_update.cc
 */
-void ha_yydb::position(const uchar*) { DBUG_TRACE; }
+void ha_yydb::position(const uchar*) {
+  DBUG_TRACE;
+  my_store_ptr(ref, ref_length, 0);
+  // the last is ulonglong
+  // my_store_ptr(ref, ref_length, yydb::ha_yydb_ret_cur_pos());
+  return ;
+}
 
 /**
   @brief
@@ -543,11 +558,12 @@ void ha_yydb::position(const uchar*) { DBUG_TRACE; }
   @see
   filesort.cc, records.cc, sql_insert.cc, sql_select.cc and sql_update.cc
 */
-int ha_yydb::rnd_pos(uchar*, uchar*) {
-    int rc;
+int ha_yydb::rnd_pos(uchar*, uchar* pos) {
     DBUG_TRACE;
-    rc = HA_ERR_WRONG_COMMAND;
-    return rc;
+    ha_statistic_increment(&System_status_var::ha_write_count);
+    // auto current_position = (off_t)my_get_ptr(pos, ref_length);
+    // yydb::ha_yydb_read_row(this->table_id,buf,current_position,-1);
+    return 0;
 }
 
 /**
@@ -590,6 +606,8 @@ int ha_yydb::rnd_pos(uchar*, uchar*) {
 */
 int ha_yydb::info(uint) {
     DBUG_TRACE;
+    // if(yydb::ha_yydb_get_cur_pos(this->table_id)<2){yydb::ha_yydb_set_cur_pos(this->table_id, 2);}
+    //return yydb::ha_yydb_get_cur_pos(this->table_id);
     return 0;
 }
 
@@ -790,6 +808,7 @@ int ha_yydb::create(const char* name, TABLE*, HA_CREATE_INFO*, dd::Table*) {
     DBUG_TRACE;
 
     this->table_id = yydb::ha_yydb_open_table(name);
+    this->table_id = 1;
 
     if(this->table_id == 0) {
         return -1;

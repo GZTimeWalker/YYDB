@@ -54,5 +54,13 @@ namespace yydb {
     extern void ha_yydb_insert_row(uint64_t table_id, uint64_t key, const u_char* row, uint length);
 
     extern void ha_yydb_update_row(uint64_t table_id, uint64_t key, const u_char* old, const u_char* row, uint length);
+
+    extern void delete_row(uint64_t table_id, uint64_t key);
+
+    extern void rnd_init(uint64_t table_id);
+
+    extern void rnd_end(uint64_t table_id);
+
+    extern int ha_yydb_rnd_next(uint64_t table_id, u_char * buf, uint length);
     /* End of table */
 }

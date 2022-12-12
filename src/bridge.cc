@@ -51,5 +51,9 @@ namespace yydb {
     void ha_yydb_put_hex(const u_char* data, uint length) {
         put_hex((const uint8_t*)data, length);
     }
+
+    int ha_yydb_rnd_next(uint64_t table_id,u_char* buf, uint length) {
+        return rnd_next(table_id, (uint8_t*)buf, length);
+    }
     /* End of table */
 }
