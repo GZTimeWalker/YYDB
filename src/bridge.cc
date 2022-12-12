@@ -47,5 +47,9 @@ namespace yydb {
     void ha_yydb_update_row(uint64_t table_id, uint64_t key, const u_char* old, const u_char* row, uint length) {
         update_row(table_id, key, (const uint8_t*)old, (const uint8_t*)row, length);
     }
+
+    void ha_yydb_put_hex(const u_char* data, uint length) {
+        put_hex((const uint8_t*)data, length);
+    }
     /* End of table */
 }

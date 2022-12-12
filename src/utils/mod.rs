@@ -26,7 +26,7 @@ pub fn print_hex_view(buffer: &[u8]) {
                 print!(" ");
             }
         }
-        print!(" | ");
+        print!("| ");
 
         // Print the ASCII values of each byte in the line.
         for j in 0..32 {

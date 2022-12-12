@@ -22,6 +22,9 @@ pub mod ffi {
 
         // update a row to a table.
         pub unsafe fn update_row(table_id: u64, key: u64, data: *const u8, new_data: *const u8, len: u32);
+
+        // put hex data to log
+        pub unsafe fn put_hex(data: *const u8, len: u32);
     }
 
     // C++ types and signatures exposed to Rust.

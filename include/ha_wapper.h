@@ -62,10 +62,12 @@ class YYDB_share : public Handler_share {
   Class definition for the storage engine
 */
 class ha_yydb : public handler {
-    THR_LOCK_DATA lock;          ///< MySQL lock
-    YYDB_share* share;        ///< Shared lock info
-    YYDB_share* get_share();  ///< Get the share
-    std::uint64_t table_id = 0;      ///< Current row id
+    THR_LOCK_DATA lock;           ///< MySQL lock
+    YYDB_share* share;            ///< Shared lock info
+    YYDB_share* get_share();      ///< Get the share
+    std::uint64_t table_id = 0;   ///< Current row id
+
+    std::uint64_t get_row_pk();
 
     public:
     ha_yydb(handlerton* hton, TABLE_SHARE* table_arg);
@@ -137,7 +139,7 @@ class ha_yydb : public handler {
       There is no need to implement ..._key_... methods if your engine doesn't
       support indexes.
      */
-    uint max_supported_keys() const override { return 0; }
+    uint max_supported_keys() const override { return 1; }
 
     /** @brief
       unireg.cc will call this to make sure that the storage engine can handle
@@ -148,7 +150,7 @@ class ha_yydb : public handler {
       There is no need to implement ..._key_... methods if your engine doesn't
       support indexes.
      */
-    uint max_supported_key_parts() const override { return 0; }
+    uint max_supported_key_parts() const override { return 1; }
 
     /** @brief
       unireg.cc will call this to make sure that the storage engine can handle
@@ -159,7 +161,7 @@ class ha_yydb : public handler {
       There is no need to implement ..._key_... methods if your engine doesn't
       support indexes.
      */
-    uint max_supported_key_length() const override { return 0; }
+    uint max_supported_key_length() const override { return 128; }
 
     /** @brief
       Called in test_quick_select to determine if indexes should be used.

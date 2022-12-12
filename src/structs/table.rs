@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::fs::File;
 use super::*;
@@ -12,10 +14,11 @@ impl TableId {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Table {
     id: TableId,
     name: String,
+    mem: Mutex<BTreeMap<u64, Vec<u8>>>
 }
 
 #[derive(Debug, PartialEq)]
@@ -39,6 +42,7 @@ impl Table {
         Ok(Table {
             id: TableId::new(),
             name: table_name,
+            mem: Mutex::new(BTreeMap::new())
          })
     }
 
@@ -48,6 +52,16 @@ impl Table {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub fn get(&self, key: u64) -> Option<Vec<u8>> {
+        let mem = self.mem.lock().unwrap();
+        mem.get(&key).map(|v| v.clone())
+    }
+
+    pub fn set(&self, key: u64, value: Vec<u8>) {
+        let mut mem = self.mem.lock().unwrap();
+        mem.insert(key, value);
     }
 }
 

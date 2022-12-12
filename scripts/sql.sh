@@ -19,16 +19,20 @@ mysql -uroot -e "CREATE TABLE IF NOT EXISTS testdb.test (
     num DOUBLE NOT NULL DEFAULT 2.3,
     date DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     name VARCHAR(10) NOT NULL,
-    other TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci
+    other TEXT CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci,
+    PRIMARY KEY (id)
 ) ENGINE=yydb"
 
 mysql -uroot -e "INSERT INTO testdb.test (id, name, num) VALUES
     (1, 'test_1_1', 23232.2), (4, 'test_4', 13.32)"
 
+mysql -uroot -e "INSERT INTO testdb.test (id, name, num) VALUES
+    (8, 'nokwe', 3.14), (6, 'fwqeqr', 14.41)"
+
 mysql -uroot -e "INSERT INTO testdb.test (id, name, other) VALUES
     (5, 'test__8', 'okk! 你好啊！🙈okk! 你好啊！🙈okk! 你好啊！🙈okk! 你好啊！🙈okk! 你好啊！🙈'),
     (7, 'test?', 'no-okk 我不好👎 no-okk 我不好👎 no-okk 我不好👎 no-okk 我不好👎 no-okk 我不好👎')"
 
-mysql -uroot -e "UPDATE testdb.test SET name = 'test__8'"
+mysql -uroot -e "UPDATE testdb.test SET name = 'test__8' WHERE id = 5"
 
 mysql -uroot -e "SELECT * FROM testdb.test"
