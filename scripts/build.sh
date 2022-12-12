@@ -21,9 +21,17 @@ else
     make -j$(nproc)
 fi
 
-if [[ ! -n "${NO_INSTALL+x}" ]] ; then
+# check if /usr/local/mysql/bin/mysql not exists and not NO_INSTALL is set
+if [[ ! -f "/usr/local/mysql/bin/mysql" ]] && [[ ! -n "${NO_INSTALL+x}" ]] ; then
     make install
-    echo "Done, MySQL with YYDB is installed!"
+    echo "Done, MySQL is installed!"
 else
-    echo "Done, MySQL with YYDB is built!"
+    # if /usr/local/mysql/lib/plugin exists,
+    # copy the built ha_yydb.so to /usr/local/mysql/lib/plugin
+    if [[ -d "/usr/local/mysql/lib/plugin" ]] ; then
+        cp plugin_output_directory/ha_yydb.so /usr/local/mysql/lib/plugin
+        echo "Done, ha_yydb.so is installed!"
+    fi
+
+    echo "Done, MySQL is built!"
 fi

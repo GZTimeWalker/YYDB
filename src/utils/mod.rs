@@ -31,7 +31,7 @@ pub fn print_hex_view(buffer: &[u8]) {
         // Print the ASCII values of each byte in the line.
         for j in 0..32 {
             if i + j < buffer.len() {
-                if buffer[i + j].is_ascii() {
+                if buffer[i + j].is_ascii_graphic() {
                     // If the byte is an ASCII character, print it.
                     print!("{}", buffer[i + j] as char);
                 } else {

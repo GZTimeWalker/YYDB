@@ -39,7 +39,7 @@
     --with-yydb-storage-engine
 
     Once this is done, MySQL will let you create tables with:<br>
-    CREATE TABLE \<table name\> (...) ENGINE=EXAMPLE;
+    CREATE TABLE \<table name\> (...) ENGINE=YYDB;
 
     The yydb storage engine is set up to use table locks. It
     implements an yydb "SHARE" that is inserted into a hash by table
@@ -51,7 +51,7 @@
     of this file.
 
     @note
-    When you create an EXAMPLE table, the MySQL Server creates a table .frm
+    When you create an YYDB table, the MySQL Server creates a table .frm
     (format) file in the database directory, using the table name as the file
     name as is customary with MySQL. No other files are created. To get an idea
     of what occurs, here is an yydb select that would do a scan of an entire
@@ -84,7 +84,7 @@
     ha_yydb::open() would also have been necessary. Calls to
     ha_yydb::extra() are hints as to what will be occurring to the request.
 
-    A Longer Example can be found called the "Skeleton Engine" which can be
+    A Longer YYDB can be found called the "Skeleton Engine" which can be
     found on TangentOrg. It has both an engine and a full build environment
     for building a pluggable storage engine.
 
@@ -115,7 +115,7 @@ static bool yydb_is_supported_system_table(const char* db,
   const char* table_name,
   bool is_sql_layer_system_table);
 
-Example_share::Example_share() { thr_lock_init(&lock); }
+YYDB_share::YYDB_share() { thr_lock_init(&lock); }
 
 static int yydb_init_func(void* p) {
   DBUG_TRACE;
@@ -147,20 +147,20 @@ static int yydb_deinit_func(void*) {
 
 /**
   @brief
-  Example of simple lock controls. The "share" it creates is a
+  YYDB of simple lock controls. The "share" it creates is a
   structure we will pass to each yydb handler. Do you have to have
   one of these? Well, you have pieces that are used for locking, and
   they are needed to function.
 */
 
-Example_share* ha_yydb::get_share() {
-  Example_share* tmp_share;
+YYDB_share* ha_yydb::get_share() {
+  YYDB_share* tmp_share;
 
   DBUG_TRACE;
 
   lock_shared_ha_data();
-  if(!(tmp_share = static_cast<Example_share*>(get_ha_share_ptr()))) {
-    tmp_share = new Example_share;
+  if(!(tmp_share = static_cast<YYDB_share*>(get_ha_share_ptr()))) {
+    tmp_share = new YYDB_share;
     if(!tmp_share) goto err;
 
     set_ha_share_ptr(static_cast<Handler_share*>(tmp_share));
@@ -279,7 +279,7 @@ int ha_yydb::close(void) {
   information to extract the data from the native byte array type.
 
   @details
-  Example of this would be:
+  YYDB of this would be:
   @code
   for (Field **field=table->field ; *field ; field++)
   {
@@ -304,12 +304,7 @@ int ha_yydb::close(void) {
 
 int ha_yydb::write_row(uchar* data) {
   DBUG_TRACE;
-  /*
-    Example of a successful write_row. We don't store the data
-    anywhere; they are thrown away. A real implementation will
-    probably need to do something with 'buf'. We report a success
-    here, to pretend that the insert was successful.
-  */
+
   yydb::ha_yydb_insert_row(this->table_id, 0, data, this->table->s->rec_buff_length);
 
   return 0;
