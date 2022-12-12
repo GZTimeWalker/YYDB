@@ -1,7 +1,8 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::fs::File;
+use super::*;
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct TableId(pub u64);
 
 impl TableId {
@@ -11,24 +12,20 @@ impl TableId {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct Table {
     id: TableId,
     name: String,
-    file: File,
 }
 
 #[derive(Debug, PartialEq)]
 pub enum TableError {
     FileCreateError,
     FileNotFound,
-    FileAlreadyExists,
-    FileTruncError
+    FileAlreadyExists
 }
 
-const TABLE_FILE_SUFFIX: &str = ".yyt";
-
 pub type TableResult = Result<Table, TableError>;
-pub type OpResult = Result<(), TableError>;
 
 impl Table {
     pub fn open(table_name: &str) -> TableResult {
@@ -36,18 +33,13 @@ impl Table {
 
         info!("Opening table: {}", table_name);
 
-        let file = File::create(&table_name)
-            .map_err(|_| TableError::FileCreateError)?;
+        // open the table file, create if not exists
+        File::create(&table_name).map_err(|_| TableError::FileCreateError)?;
+
         Ok(Table {
             id: TableId::new(),
             name: table_name,
-            file
          })
-    }
-
-    pub fn close(&self) {
-        info!("Closing table: {}", self.name);
-        self.file.sync_all().unwrap();
     }
 
     pub fn id(&self) -> TableId {
@@ -56,5 +48,12 @@ impl Table {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+}
+
+impl Drop for Table {
+    fn drop(&mut self) {
+        info!("Closing table: {}", self.name);
+        // TODO: cleanup and flush all data
     }
 }

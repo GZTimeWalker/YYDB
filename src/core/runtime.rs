@@ -108,6 +108,8 @@ pub fn get_table(id: &TableId) -> Option<Arc<Table>> {
 
 /// Close a table by id.
 ///
+/// The cleanup of the table will be done in the drop of `Table`.
+///
 /// # Examples
 ///
 /// ```
@@ -117,11 +119,8 @@ pub fn get_table(id: &TableId) -> Option<Arc<Table>> {
 /// close_table(&id);
 /// ```
 #[inline]
-pub fn close_table(id: &TableId) {
-    if let Some(table) = get_table(id) {
-        table.close();
-        Runtime::global().tables.lock().unwrap().remove(&id);
-    }
+pub fn close_table(id: &TableId) -> Option<Arc<Table>> {
+    Runtime::global().tables.lock().unwrap().remove(&id)
 }
 
 impl Runtime {
@@ -161,5 +160,15 @@ mod tests {
 
             future::join_all(futures).await;
         });
+    }
+
+    #[test]
+    fn table_open_close_works() {
+        let id = super::open_table("test_table").unwrap();
+        let table = super::get_table(&id).unwrap();
+        assert_eq!(table.name(), "test_table.yyt");
+        super::close_table(&id);
+        assert!(super::close_table(&id).is_none());
+        assert!(super::get_table(&id).is_none());
     }
 }

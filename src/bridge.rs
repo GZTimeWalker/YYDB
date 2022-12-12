@@ -18,10 +18,10 @@ pub mod ffi {
         pub fn close_table(id: u64);
 
         // insert a row to a table.
-        pub unsafe fn insert_row(table_id: u64, row: *const u8, len: u32);
+        pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32);
 
         // update a row to a table.
-        pub unsafe fn update_row(table_id: u64, row: *const u8, new_row: *const u8, len: u32);
+        pub unsafe fn update_row(table_id: u64, key: u64, data: *const u8, new_data: *const u8, len: u32);
     }
 
     // C++ types and signatures exposed to Rust.

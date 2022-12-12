@@ -6,12 +6,11 @@ pub mod logger;
 pub use macros::*;
 
 pub fn print_hex_view(buffer: &[u8]) {
-    let mut line_number = 0;
     let mut i = 0;
 
     while i < buffer.len() {
         // Print the line number.
-        print!("{:08x} | ", line_number);
+        print!("{:08x} | ", i);
 
         // Print the hexadecimal values of each byte in the line.
         for j in 0..32 {
@@ -47,7 +46,6 @@ pub fn print_hex_view(buffer: &[u8]) {
         }
         println!("");
 
-        line_number += 32;
         i += 32;
     }
 }

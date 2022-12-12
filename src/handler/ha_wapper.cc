@@ -310,7 +310,7 @@ int ha_yydb::write_row(uchar* data) {
     probably need to do something with 'buf'. We report a success
     here, to pretend that the insert was successful.
   */
-  yydb::ha_yydb_insert_row(this->table_id, data, this->table->s->rec_buff_length);
+  yydb::ha_yydb_insert_row(this->table_id, 0, data, this->table->s->rec_buff_length);
 
   return 0;
 }
@@ -341,7 +341,7 @@ int ha_yydb::write_row(uchar* data) {
 int ha_yydb::update_row(const uchar* old_data, uchar* new_data) {
   DBUG_TRACE;
 
-  yydb::ha_yydb_update_row(this->table_id, old_data, new_data, this->table->s->rec_buff_length);
+  yydb::ha_yydb_update_row(this->table_id, 0, old_data, new_data, this->table->s->rec_buff_length);
 
   return 0;
 }
