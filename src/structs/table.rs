@@ -1,8 +1,8 @@
-use std::sync::{Mutex, Arc};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::fs::File;
-use super::*;
 use super::mem::MemTable;
+use super::*;
+use std::fs::File;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct TableId(pub u64);
@@ -14,18 +14,24 @@ impl TableId {
     }
 }
 
+impl Default for TableId {
+    fn default() -> Self {
+        TableId::new()
+    }
+}
+
 #[derive(Debug)]
 pub struct Table {
     id: TableId,
     name: String,
-    mem: Mutex<MemTable>
+    mem: Mutex<MemTable>,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum TableError {
     FileCreateError,
     FileNotFound,
-    FileAlreadyExists
+    FileAlreadyExists,
 }
 
 pub type TableResult = Result<Table, TableError>;
@@ -42,8 +48,8 @@ impl Table {
         Ok(Table {
             id: TableId::new(),
             name: table_name,
-            mem: Mutex::new(MemTable::new())
-         })
+            mem: Mutex::new(MemTable::new()),
+        })
     }
 
     pub fn id(&self) -> TableId {

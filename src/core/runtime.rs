@@ -84,7 +84,11 @@ where
 pub fn open_table(table_name: &str) -> Option<TableId> {
     if let Ok(table) = Table::open(table_name) {
         let id = table.id();
-        Runtime::global().tables.lock().unwrap().insert(id, Arc::new(table));
+        Runtime::global()
+            .tables
+            .lock()
+            .unwrap()
+            .insert(id, Arc::new(table));
         Some(id)
     } else {
         None
@@ -120,7 +124,7 @@ pub fn get_table(id: &TableId) -> Option<Arc<Table>> {
 /// ```
 #[inline]
 pub fn close_table(id: &TableId) -> Option<Arc<Table>> {
-    Runtime::global().tables.lock().unwrap().remove(&id)
+    Runtime::global().tables.lock().unwrap().remove(id)
 }
 
 impl Runtime {

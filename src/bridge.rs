@@ -1,5 +1,5 @@
-use crate::*;
 use crate::core::bridge::*;
+use crate::*;
 
 #[cxx::bridge(namespace = "yydb")]
 pub mod ffi {
@@ -21,7 +21,13 @@ pub mod ffi {
         pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32);
 
         // update a row to a table.
-        pub unsafe fn update_row(table_id: u64, key: u64, data: *const u8, new_data: *const u8, len: u32);
+        pub unsafe fn update_row(
+            table_id: u64,
+            key: u64,
+            data: *const u8,
+            new_data: *const u8,
+            len: u32,
+        );
 
         // delete a row to a table.
         pub unsafe fn delete_row(table_id: u64, key: u64);

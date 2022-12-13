@@ -558,7 +558,7 @@ void ha_yydb::position(const uchar*) {
   @see
   filesort.cc, records.cc, sql_insert.cc, sql_select.cc and sql_update.cc
 */
-int ha_yydb::rnd_pos(uchar*, uchar* pos) {
+int ha_yydb::rnd_pos(uchar*, uchar*) {
     DBUG_TRACE;
     ha_statistic_increment(&System_status_var::ha_write_count);
     // auto current_position = (off_t)my_get_ptr(pos, ref_length);

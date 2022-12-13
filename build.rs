@@ -1,7 +1,7 @@
 fn main() {
     let profile = std::env::var("PROFILE").unwrap();
-    let mysql_src =
-        std::env::var("MYSQL_SOURCE_DIR").unwrap_or("/usr/local/src/mysql-8.0".to_string());
+    let mysql_src = std::env::var("MYSQL_SOURCE_DIR")
+        .unwrap_or_else(|_| "/usr/local/src/mysql-8.0".to_string());
 
     cxx_build::bridge("src/bridge.rs")
         .file("src/bridge.cc")

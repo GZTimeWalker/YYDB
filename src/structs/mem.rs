@@ -41,8 +41,7 @@ impl MemTable {
     }
 
     pub fn init_iter(&mut self) {
-        let iter: Vec<Arc<Vec<u8>>> = self.map.values().cloned().collect();
-        self.data = Some(iter.into_iter());
+        self.data = Some(self.map.values().cloned().collect::<Vec<_>>().into_iter());
     }
 
     pub fn end_iter(&mut self) {

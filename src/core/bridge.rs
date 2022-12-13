@@ -22,7 +22,7 @@ pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32) {
     crate::utils::print_hex_view(data);
 
     if let Some(table) = super::runtime::get_table(&TableId(table_id)) {
-        table.set(key, data.to_vec().clone());
+        table.set(key, data.to_vec());
     }
 }
 
@@ -36,7 +36,7 @@ pub unsafe fn update_row(table_id: u64, key: u64, _data: *const u8, new_data: *c
     }
 }
 
-pub unsafe fn delete_row(table_id: u64, key: u64) {
+pub fn delete_row(table_id: u64, key: u64) {
     info!("Deleting row @{:3<} for table {}", key, table_id);
 
     if let Some(table) = super::runtime::get_table(&TableId(table_id)) {
