@@ -36,19 +36,19 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let datas = vec![
+        let data = vec![
             DataStore::Value(Arc::new(vec![122; 64])),
             DataStore::Deleted,
             DataStore::NotFound,
         ];
         let config = bincode::config::standard();
 
-        let bytes = bincode::encode_to_vec(&datas, config).unwrap();
+        let bytes = bincode::encode_to_vec(&data, config).unwrap();
 
         println!("Length for DataStore Test: {}", bytes.len());
 
         let decoded: Vec<DataStore> = bincode::decode_from_slice(&bytes, config).unwrap().0;
 
-        assert!(datas == decoded);
+        assert!(data == decoded);
     }
 }
