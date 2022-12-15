@@ -75,7 +75,7 @@ where
 /// Open a table by name.
 #[inline]
 pub async fn open_table(table_name: String) -> Option<TableId> {
-    if let Ok(table) = Table::open(table_name.into()) {
+    if let Ok(table) = Table::open(table_name) {
         let id = table.id();
         Runtime::global().tables.write().await
             .insert(id, Arc::new(table));
@@ -88,11 +88,7 @@ pub async fn open_table(table_name: String) -> Option<TableId> {
 /// Get a table by id.
 #[inline]
 pub async fn get_table(id: &TableId) -> Option<Arc<Table>> {
-    if let Some(table) = Runtime::global().tables.read().await.get(id) {
-        Some(table.clone())
-    } else {
-        None
-    }
+    Runtime::global().tables.read().await.get(id).cloned()
 }
 
 /// Close a table by id.

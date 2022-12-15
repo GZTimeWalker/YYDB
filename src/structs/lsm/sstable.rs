@@ -1,6 +1,12 @@
 use std::fmt::{Debug, LowerHex};
 
-use crate::utils::io_handler::{IOHandler, IOHandlerFactory};
+use async_trait::async_trait;
+
+use crate::{
+    structs::{kvstore::{SizedOnDisk, AsyncKVStoreRead}, mem::DataBlock},
+    utils::error::Result,
+    utils::io_handler::{IOHandler, IOHandlerFactory},
+};
 
 use super::metadata::SSTableMeta;
 
@@ -21,6 +27,25 @@ impl SSTable {
 
     pub fn meta(&self) -> &SSTableMeta {
         &self.meta
+    }
+}
+
+#[async_trait]
+impl AsyncKVStoreRead for SSTable {
+    async fn get(&self, _key: u64) -> Option<DataBlock> {
+        todo!()
+    }
+
+    async fn len(&self) -> usize {
+        // todo!()
+        0
+    }
+}
+
+#[async_trait]
+impl SizedOnDisk for SSTable {
+    async fn size_on_disk(&self) -> Result<u64> {
+        self.io.size_on_disk().await
     }
 }
 
@@ -53,7 +78,12 @@ impl LowerHex for SSTableKey {
 
 impl Debug for SSTableKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "SSTableKey[{:02}]({})", self.0 >> 60, !(0x0F << 60) & !(self.0))
+        write!(
+            f,
+            "SSTableKey[{:02}]({})",
+            self.0 >> 60,
+            !(0x0F << 60) & !(self.0)
+        )
     }
 }
 

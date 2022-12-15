@@ -1,8 +1,9 @@
+use async_trait::async_trait;
 use avl::AvlTreeMap;
 
 use crate::utils::io_handler::IOHandlerFactory;
-
-use super::sstable::sstable::{SSTable, SSTableKey};
+use crate::utils::error::Result;
+use super::{lsm::sstable::{SSTable, SSTableKey}, kvstore::{SizedOnDisk, AsyncKVStoreRead}, mem::DataBlock};
 
 #[derive(Debug)]
 pub struct Manifest {
@@ -19,9 +20,43 @@ impl Manifest {
     }
 }
 
+#[async_trait]
+impl AsyncKVStoreRead for Manifest {
+    async fn get(&self, key: u64) -> Option<DataBlock> {
+        let mut result = None;
+        for table in self.tables.values() {
+            if let Some(block) = table.get(key).await {
+                result = Some(block);
+                break;
+            }
+        }
+        result
+    }
+
+    async fn len(&self) -> usize {
+        let mut len = 0;
+        for table in self.tables.values() {
+            len += table.len().await;
+        }
+        len
+    }
+}
+
+#[async_trait]
+impl SizedOnDisk for Manifest {
+    async fn size_on_disk(&self) -> Result<u64> {
+        let mut size = 0;
+        for table in self.tables.values() {
+            size += table.size_on_disk().await?;
+        }
+        Ok(size)
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
-    use crate::structs::sstable::metadata::SSTableMeta;
+    use crate::structs::lsm::metadata::SSTableMeta;
 
     use super::*;
 

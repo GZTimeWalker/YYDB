@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use crc32fast::Hasher;
 use std::io::SeekFrom;
 use std::{path::PathBuf, sync::Arc};
@@ -5,7 +6,8 @@ use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::{Mutex, MutexGuard};
 
-use crate::structs::sstable::sstable::SSTableKey;
+use crate::structs::kvstore::SizedOnDisk;
+use crate::structs::lsm::sstable::SSTableKey;
 use crate::utils::error::Result;
 
 #[derive(Debug)]
@@ -85,6 +87,13 @@ impl IOHandler {
 
         fs::remove_file(self.file_path.as_ref()).await?;
         Ok(())
+    }
+}
+
+#[async_trait]
+impl SizedOnDisk for IOHandler {
+    async fn size_on_disk(&self) -> Result<u64> {
+        Ok(fs::metadata(self.file_path.as_ref()).await?.len())
     }
 }
 
