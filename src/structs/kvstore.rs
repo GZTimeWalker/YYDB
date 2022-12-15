@@ -2,7 +2,6 @@ use async_trait::async_trait;
 
 use crate::utils::*;
 
-
 #[async_trait]
 pub trait AsyncKVStoreRead: Send + 'static + Sized {
     /// Get the value specified by the key

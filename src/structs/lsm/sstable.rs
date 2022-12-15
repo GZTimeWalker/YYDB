@@ -45,7 +45,7 @@ impl SizedOnDisk for SSTable {
     }
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Encode, Decode, PartialEq, Eq, PartialOrd, Ord)]
 pub struct SSTableKey(pub u64);
 
 impl SSTableKey {
