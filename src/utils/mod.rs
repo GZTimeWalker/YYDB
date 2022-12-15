@@ -4,8 +4,12 @@ mod macros;
 pub mod error;
 pub mod io_handler;
 pub mod logger;
+pub mod data_store;
 
 pub use macros::*;
+pub use error::*;
+pub use io_handler::*;
+pub use data_store::*;
 
 pub fn print_hex_view(buffer: &[u8]) {
     let mut i = 0;

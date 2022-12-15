@@ -3,11 +3,9 @@ use tokio::sync::RwLock;
 
 use super::kvstore::*;
 use super::manifest::Manifest;
-use super::mem::{DataBlock, MemTable};
-use crate::structs::TABLE_FILE_SUFFIX;
-use crate::utils::error::Result;
+use super::mem::MemTable;
+use crate::utils::*;
 use std::collections::hash_map::DefaultHasher;
-use std::fs::File;
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -31,21 +29,17 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn open(table_name: String) -> Result<Table> {
-        let table_name = format!("{}{}", table_name, TABLE_FILE_SUFFIX);
-
+    pub async fn open(table_name: String) -> Result<Table> {
         info!("Opening table: {}", table_name);
 
-        // open the table file, create if not exists
-        File::create(&table_name)?;
-
-        let table_name_ref = table_name.as_str();
+        let table_name = table_name.as_str();
+        std::fs::create_dir_all(&table_name)?;
 
         Ok(Table {
-            id: TableId::new(table_name_ref),
-            name: table_name.clone(),
-            memtable: MemTable::new(),
-            manifest: Arc::new(RwLock::new(Manifest::new(table_name_ref))),
+            id: TableId::new(table_name),
+            name: table_name.to_string(),
+            memtable: MemTable::new(table_name).await,
+            manifest: Arc::new(RwLock::new(Manifest::new(table_name).await)),
         })
     }
 
@@ -66,8 +60,19 @@ impl Drop for Table {
 
 #[async_trait]
 impl AsyncKVStoreRead for Table {
-    async fn get(&self, key: u64) -> Option<DataBlock> {
-        self.memtable.get(key).await
+    async fn get(&self, key: u64) -> DataStore {
+        match self.memtable.get(key).await {
+            DataStore::Value(value) => return DataStore::Value(value),
+            DataStore::Deleted => return DataStore::Deleted,
+            DataStore::NotFound => (),
+        }
+
+        let manifest = self.manifest.read().await;
+
+        match manifest.get(key).await {
+            DataStore::Value(value) => DataStore::Value(value),
+            x => x,
+        }
     }
 
     async fn len(&self) -> usize {
@@ -90,5 +95,47 @@ impl AsyncKVStoreWrite for Table {
 impl SizedOnDisk for Table {
     async fn size_on_disk(&self) -> Result<u64> {
         self.manifest.read().await.size_on_disk().await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::utils::error::Result;
+    use std::path::PathBuf;
+
+    #[tokio::test]
+    async fn it_works() -> Result<()> {
+        let test_dir = "helper/table_test";
+
+        std::fs::remove_dir_all(test_dir).ok();
+        std::fs::create_dir_all(test_dir).unwrap();
+
+        let table = Table::open(test_dir.to_string()).await?;
+
+        assert_eq!(table.name(), test_dir);
+        assert_eq!(table.id(), TableId::new(test_dir));
+
+        let key = 1;
+        let value = vec![1, 3, 5, 7];
+
+        table.set(key, value.clone()).await;
+
+        if let DataStore::Value(v) = table.get(key).await {
+            assert_eq!(v.as_ref(), &value);
+        } else {
+            panic!("Value not found");
+        }
+
+        table.delete(key).await;
+
+        assert_eq!(table.get(key).await, DataStore::Deleted);
+
+        assert_eq!(table.get(2).await, DataStore::NotFound);
+
+        let table_path = PathBuf::from(test_dir);
+        std::fs::remove_dir_all(table_path)?;
+
+        Ok(())
     }
 }

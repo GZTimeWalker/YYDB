@@ -104,25 +104,15 @@ pub struct IOHandlerFactory {
 
 impl IOHandlerFactory {
     pub fn new(table_name: impl Into<PathBuf>) -> Self {
-        let path: PathBuf = table_name.into();
-        if !path.exists() {
-            std::fs::create_dir_all(&path).unwrap();
-        }
-
         Self {
-            base_dir: Arc::new(path),
+            base_dir: Arc::new(table_name.into()),
         }
-    }
-
-    fn store_path(&self, key: SSTableKey) -> PathBuf {
-        let mut path = self.base_dir.to_path_buf();
-        let level = key.level();
-        path.push(format!("{:x}.l{}", key, level));
-        path
     }
 
     pub async fn create(&self, key: SSTableKey) -> Result<IOHandler> {
-        let path = self.store_path(key);
+        let mut path = self.base_dir.to_path_buf();
+        path.push(format!("{:x}.l{}", key, key.level()));
+
         IOHandler::new(&path).await
     }
 }

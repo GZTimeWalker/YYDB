@@ -1,40 +1,51 @@
+use std::path::PathBuf;
+
 use async_trait::async_trait;
 use avl::AvlTreeMap;
 
 use super::{
-    kvstore::{AsyncKVStoreRead, SizedOnDisk},
+    kvstore::*,
     lsm::sstable::{SSTable, SSTableKey},
-    mem::DataBlock,
 };
-use crate::utils::error::Result;
-use crate::utils::io_handler::IOHandlerFactory;
+use crate::utils::*;
 
 #[derive(Debug)]
 pub struct Manifest {
     tables: AvlTreeMap<SSTableKey, SSTable>,
     factory: IOHandlerFactory,
+    io: IOHandler,
 }
 
 impl Manifest {
-    pub fn new(table_name: &str) -> Self {
+    pub async fn new(table_name: impl Into<PathBuf>) -> Self {
+        let table_name: PathBuf = table_name.into();
+        let path = PathBuf::from(&table_name).join(".meta");
+
+        debug!("Manifest path: {:?}", path);
+
+        let io = IOHandler::new(&path).await.unwrap();
+
+        // TODO: load manifest from disk
+
         Self {
+            io,
             tables: AvlTreeMap::new(),
-            factory: IOHandlerFactory::new(table_name),
+            factory: IOHandlerFactory::new(&table_name),
         }
     }
 }
 
 #[async_trait]
 impl AsyncKVStoreRead for Manifest {
-    async fn get(&self, key: u64) -> Option<DataBlock> {
-        let mut result = None;
+    async fn get(&self, key: u64) -> DataStore {
         for table in self.tables.values() {
-            if let Some(block) = table.get(key).await {
-                result = Some(block);
-                break;
-            }
+            return match table.get(key).await {
+                DataStore::Value(block) => DataStore::Value(block),
+                DataStore::Deleted => DataStore::Deleted,
+                DataStore::NotFound => continue,
+            };
         }
-        result
+        DataStore::NotFound
     }
 
     async fn len(&self) -> usize {
@@ -57,6 +68,12 @@ impl SizedOnDisk for Manifest {
     }
 }
 
+impl Drop for Manifest {
+    fn drop(&mut self) {
+        // TODO: save manifest to disk
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::structs::lsm::metadata::SSTableMeta;
@@ -65,12 +82,13 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() {
-        std::fs::remove_dir_all("helper/sstable").ok();
+        let test_dir = "helper/sstable";
 
-        let mut manifest = Manifest {
-            tables: AvlTreeMap::new(),
-            factory: IOHandlerFactory::new("helper/sstable"),
-        };
+        std::fs::remove_dir_all(test_dir).ok();
+        std::fs::create_dir_all(test_dir).unwrap();
+
+        let mut manifest = Manifest::new(test_dir).await;
+
         for _ in 0..10 {
             let rnd = rand::random::<u32>() % 6;
             let mut meta = SSTableMeta::default();

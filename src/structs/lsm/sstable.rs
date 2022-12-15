@@ -2,14 +2,7 @@ use std::fmt::{Debug, LowerHex};
 
 use async_trait::async_trait;
 
-use crate::{
-    structs::{
-        kvstore::{AsyncKVStoreRead, SizedOnDisk},
-        mem::DataBlock,
-    },
-    utils::error::Result,
-    utils::io_handler::{IOHandler, IOHandlerFactory},
-};
+use crate::{structs::kvstore::*, utils::*};
 
 use super::metadata::SSTableMeta;
 
@@ -35,7 +28,7 @@ impl SSTable {
 
 #[async_trait]
 impl AsyncKVStoreRead for SSTable {
-    async fn get(&self, _key: u64) -> Option<DataBlock> {
+    async fn get(&self, _key: u64) -> DataStore {
         todo!()
     }
 
@@ -81,12 +74,7 @@ impl LowerHex for SSTableKey {
 
 impl Debug for SSTableKey {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "SSTableKey[{:02}]({})",
-            self.0 >> 60,
-            !(0x0F << 60) & !(self.0)
-        )
+        write!(f, "SSTableKey[{:02}]({})", self.level(), self.timestamp())
     }
 }
 

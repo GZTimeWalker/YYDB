@@ -72,7 +72,7 @@ where
 /// Open a table by name.
 #[inline]
 pub async fn open_table(table_name: String) -> Option<TableId> {
-    if let Ok(table) = Table::open(table_name) {
+    if let Ok(table) = Table::open(table_name).await {
         let id = table.id();
         Runtime::global()
             .tables
@@ -120,7 +120,7 @@ mod tests {
     use std::time::Duration;
 
     #[test]
-    fn async_runtime_works() {
+    fn it_works() {
         super::block_on(async {
             let futures = (0..10)
                 .map(|i| {
@@ -134,15 +134,5 @@ mod tests {
 
             future::join_all(futures).await;
         });
-    }
-
-    #[tokio::test]
-    async fn table_open_close_works() {
-        let id = super::open_table("test_table".to_string()).await.unwrap();
-        let table = super::get_table(&id).await.unwrap();
-        assert_eq!(table.name(), "test_table.yyt");
-        super::close_table(&id).await;
-        assert!(super::close_table(&id).await.is_none());
-        assert!(super::get_table(&id).await.is_none());
     }
 }

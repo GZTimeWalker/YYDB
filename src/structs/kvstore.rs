@@ -1,12 +1,12 @@
 use async_trait::async_trait;
 
-use crate::structs::mem::DataBlock;
-use crate::utils::error::Result;
+use crate::utils::*;
+
 
 #[async_trait]
 pub trait AsyncKVStoreRead: Send + 'static + Sized {
     /// Get the value specified by the key
-    async fn get(&self, key: u64) -> Option<DataBlock>;
+    async fn get(&self, key: u64) -> DataStore;
 
     /// Get the number of keys in the store
     async fn len(&self) -> usize;
