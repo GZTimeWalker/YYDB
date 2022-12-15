@@ -3,7 +3,10 @@ use std::fmt::{Debug, LowerHex};
 use async_trait::async_trait;
 
 use crate::{
-    structs::{kvstore::{SizedOnDisk, AsyncKVStoreRead}, mem::DataBlock},
+    structs::{
+        kvstore::{AsyncKVStoreRead, SizedOnDisk},
+        mem::DataBlock,
+    },
     utils::error::Result,
     utils::io_handler::{IOHandler, IOHandlerFactory},
 };

@@ -1,11 +1,8 @@
 use futures::Future;
 use once_cell::sync::OnceCell;
-use std::{
-    collections::BTreeMap,
-    sync::Arc,
-};
-use tokio::task::JoinHandle;
+use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
 
 use crate::structs::table::{Table, TableId};
 
@@ -77,7 +74,10 @@ where
 pub async fn open_table(table_name: String) -> Option<TableId> {
     if let Ok(table) = Table::open(table_name) {
         let id = table.id();
-        Runtime::global().tables.write().await
+        Runtime::global()
+            .tables
+            .write()
+            .await
             .insert(id, Arc::new(table));
         Some(id)
     } else {

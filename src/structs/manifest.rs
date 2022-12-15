@@ -1,21 +1,25 @@
 use async_trait::async_trait;
 use avl::AvlTreeMap;
 
-use crate::utils::io_handler::IOHandlerFactory;
+use super::{
+    kvstore::{AsyncKVStoreRead, SizedOnDisk},
+    lsm::sstable::{SSTable, SSTableKey},
+    mem::DataBlock,
+};
 use crate::utils::error::Result;
-use super::{lsm::sstable::{SSTable, SSTableKey}, kvstore::{SizedOnDisk, AsyncKVStoreRead}, mem::DataBlock};
+use crate::utils::io_handler::IOHandlerFactory;
 
 #[derive(Debug)]
 pub struct Manifest {
     tables: AvlTreeMap<SSTableKey, SSTable>,
-    factory: IOHandlerFactory
+    factory: IOHandlerFactory,
 }
 
 impl Manifest {
     pub fn new(table_name: &str) -> Self {
         Self {
             tables: AvlTreeMap::new(),
-            factory: IOHandlerFactory::new(table_name)
+            factory: IOHandlerFactory::new(table_name),
         }
     }
 }
@@ -53,7 +57,6 @@ impl SizedOnDisk for Manifest {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use crate::structs::lsm::metadata::SSTableMeta;
@@ -66,16 +69,15 @@ mod tests {
 
         let mut manifest = Manifest {
             tables: AvlTreeMap::new(),
-            factory: IOHandlerFactory::new("helper/sstable")
+            factory: IOHandlerFactory::new("helper/sstable"),
         };
         for _ in 0..10 {
             let rnd = rand::random::<u32>() % 6;
             let mut meta = SSTableMeta::default();
             meta.key = SSTableKey::new(rnd);
-            manifest.tables.insert(
-                meta.key,
-                SSTable::new(meta, &manifest.factory).await
-            );
+            manifest
+                .tables
+                .insert(meta.key, SSTable::new(meta, &manifest.factory).await);
         }
         for (k, v) in manifest.tables.iter() {
             println!("{:?}: \n{:#?}", k, v);

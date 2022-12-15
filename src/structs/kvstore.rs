@@ -21,7 +21,6 @@ pub trait AsyncKVStoreWrite: AsyncKVStoreRead {
     async fn delete(&self, key: u64);
 }
 
-
 #[async_trait]
 pub trait SizedOnDisk {
     /// Get the size of the store on disk

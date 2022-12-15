@@ -1,9 +1,9 @@
 #[macro_use]
 mod macros;
 
-pub mod logger;
 pub mod error;
 pub mod io_handler;
+pub mod logger;
 
 pub use macros::*;
 

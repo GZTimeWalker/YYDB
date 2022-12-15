@@ -1,6 +1,5 @@
 pub type Result<T> = std::result::Result<T, DbError>;
 
-
 #[derive(Debug)]
 pub enum DbError {
     IOError(std::io::Error),

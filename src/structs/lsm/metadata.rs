@@ -8,7 +8,7 @@ pub struct SSTableMeta {
     pub checksum: u32,
     pub level: u32,
     pub row_size: u32,
-    pub bloom_filter: GrowableBloom
+    pub bloom_filter: GrowableBloom,
 }
 
 impl Default for SSTableMeta {
@@ -18,7 +18,7 @@ impl Default for SSTableMeta {
             checksum: 0,
             level: 0,
             row_size: 0,
-            bloom_filter: GrowableBloom::new(0.01, 1000)
+            bloom_filter: GrowableBloom::new(0.01, 1000),
         }
     }
 }
