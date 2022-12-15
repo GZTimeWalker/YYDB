@@ -1,50 +1,43 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
-use std::vec::IntoIter;
+
+use tokio::sync::RwLock;
+
+pub(crate) type DataBlock = Arc<Option<Vec<u8>>>;
+
+pub(crate) type MemStore = BTreeMap<u64, DataBlock>;
 
 #[derive(Debug)]
 pub struct MemTable {
-    map: BTreeMap<u64, Arc<Vec<u8>>>,
-    data: Option<IntoIter<Arc<Vec<u8>>>>,
+    mut_map: RwLock<MemStore>,
+    lock_map: RwLock<MemStore>,
 }
 
 impl MemTable {
     pub fn new() -> Self {
         Self {
-            map: BTreeMap::new(),
-            data: None,
+            mut_map: RwLock::new(BTreeMap::new()),
+            lock_map: RwLock::new(BTreeMap::new()),
         }
     }
 
-    pub fn get(&self, key: u64) -> Option<Arc<Vec<u8>>> {
-        self.map.get(&key).cloned()
+    pub async fn get(&self, key: u64) -> Option<DataBlock> {
+        self.mut_map.read().await.get(&key).cloned()
     }
 
-    pub fn set(&mut self, key: u64, value: Vec<u8>) {
-        self.map.insert(key, Arc::new(value));
+    pub async fn set(&self, key: u64, value: Vec<u8>) {
+        self.mut_map.write().await.insert(key, Arc::new(Some(value)));
     }
 
-    pub fn delete(&mut self, key: u64) {
-        self.map.remove(&key);
+    pub async fn delete(&self, key: u64) {
+        self.mut_map.write().await.remove(&key);
     }
 
-    pub unsafe fn next(&mut self, buf: *mut u8, len: usize) -> i32 {
-        if let Some(data) = &mut self.data {
-            if let Some(value) = data.next() {
-                let value = value.as_slice();
-                std::ptr::copy_nonoverlapping(value.as_ptr(), buf, len);
-                crate::utils::print_hex_view(value);
-                return len as i32;
-            }
-        }
-        0
-    }
+    pub async fn swap(&self) {
+        let mut mut_map = self.mut_map.write().await;
+        let mut lock_map = self.lock_map.write().await;
 
-    pub fn init_iter(&mut self) {
-        self.data = Some(self.map.values().cloned().collect::<Vec<_>>().into_iter());
-    }
-
-    pub fn end_iter(&mut self) {
-        self.data = None;
+        lock_map.clear();
+        std::mem::swap(&mut *mut_map, &mut *lock_map);
     }
 }

@@ -20,6 +20,12 @@ log = "0.4"
 rand = "0.8"
 once_cell = "1"
 futures = "0.3"
+avl = "0.6"
+fastbloom-rs = "0.3"
+bincode = "1"
+serde = "1"
+crc32fast = "1.3"
+async-trait = "0.1"
 tokio = { version = "1", features = [
     "rt-multi-thread",
     "sync",
@@ -27,6 +33,7 @@ tokio = { version = "1", features = [
     "time",
     "fs",
     "signal",
+    "io-util"
 ] }
 
 [build-dependencies]

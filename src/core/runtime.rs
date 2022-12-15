@@ -2,9 +2,10 @@ use futures::Future;
 use once_cell::sync::OnceCell;
 use std::{
     collections::BTreeMap,
-    sync::{Arc, Mutex},
+    sync::Arc,
 };
 use tokio::task::JoinHandle;
+use tokio::sync::RwLock;
 
 use crate::structs::table::{Table, TableId};
 
@@ -17,7 +18,7 @@ static RUNTIME: OnceCell<Runtime> = OnceCell::new();
 /// by `RUNTIME` static variable.
 pub struct Runtime {
     tokio_rt: tokio::runtime::Runtime,
-    tables: Mutex<BTreeMap<TableId, Arc<Table>>>,
+    tables: RwLock<BTreeMap<TableId, Arc<Table>>>,
 }
 
 /// Init the runtime of YYDB.
@@ -72,22 +73,11 @@ where
 }
 
 /// Open a table by name.
-///
-/// # Examples
-///
-/// ```
-/// use yydb::core::open_table;
-///
-/// let id = open_table("test_table").unwrap();
-/// ```
 #[inline]
-pub fn open_table(table_name: &str) -> Option<TableId> {
-    if let Ok(table) = Table::open(table_name) {
+pub async fn open_table(table_name: String) -> Option<TableId> {
+    if let Ok(table) = Table::open(table_name.into()) {
         let id = table.id();
-        Runtime::global()
-            .tables
-            .lock()
-            .unwrap()
+        Runtime::global().tables.write().await
             .insert(id, Arc::new(table));
         Some(id)
     } else {
@@ -96,35 +86,19 @@ pub fn open_table(table_name: &str) -> Option<TableId> {
 }
 
 /// Get a table by id.
-///
-/// # Examples
-///
-/// ```
-/// use yydb::core::{open_table, get_table};
-///
-/// let id = open_table("test_table").unwrap();
-/// let table = get_table(&id).unwrap();
-/// ```
 #[inline]
-pub fn get_table(id: &TableId) -> Option<Arc<Table>> {
-    Runtime::global().tables.lock().unwrap().get(id).cloned()
+pub async fn get_table(id: &TableId) -> Option<Arc<Table>> {
+    if let Some(table) = Runtime::global().tables.read().await.get(id) {
+        Some(table.clone())
+    } else {
+        None
+    }
 }
 
 /// Close a table by id.
-///
-/// The cleanup of the table will be done in the drop of `Table`.
-///
-/// # Examples
-///
-/// ```
-/// use yydb::core::{open_table, close_table};
-///
-/// let id = open_table("test_table").unwrap();
-/// close_table(&id);
-/// ```
 #[inline]
-pub fn close_table(id: &TableId) -> Option<Arc<Table>> {
-    Runtime::global().tables.lock().unwrap().remove(id)
+pub async fn close_table(id: &TableId) -> Option<Arc<Table>> {
+    Runtime::global().tables.write().await.remove(id)
 }
 
 impl Runtime {
@@ -137,7 +111,7 @@ impl Runtime {
 
             Runtime {
                 tokio_rt: rt,
-                tables: Mutex::new(BTreeMap::new()),
+                tables: RwLock::new(BTreeMap::new()),
             }
         })
     }
@@ -166,13 +140,13 @@ mod tests {
         });
     }
 
-    #[test]
-    fn table_open_close_works() {
-        let id = super::open_table("test_table").unwrap();
-        let table = super::get_table(&id).unwrap();
+    #[tokio::test]
+    async fn table_open_close_works() {
+        let id = super::open_table("test_table".to_string()).await.unwrap();
+        let table = super::get_table(&id).await.unwrap();
         assert_eq!(table.name(), "test_table.yyt");
-        super::close_table(&id);
-        assert!(super::close_table(&id).is_none());
-        assert!(super::get_table(&id).is_none());
+        super::close_table(&id).await;
+        assert!(super::close_table(&id).await.is_none());
+        assert!(super::get_table(&id).await.is_none());
     }
 }
