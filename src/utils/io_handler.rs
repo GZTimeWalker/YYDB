@@ -5,20 +5,24 @@ use tokio::fs::{self, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::sync::{Mutex, MutexGuard};
 
+use crate::structs::sstable::sstable::SSTableKey;
 use crate::utils::error::Result;
 
+#[derive(Debug)]
 pub struct IOHandler {
     file_path: Arc<PathBuf>,
     file: Mutex<File>,
 }
 
 impl IOHandler {
-    pub async fn new(path: &PathBuf) -> Result<Self> {
+    pub async fn new(path: impl Into<PathBuf>) -> Result<Self> {
+        let path: PathBuf = path.into();
+
         let file_opt = OpenOptions::new()
             .create(true)
             .write(true)
             .read(true)
-            .open(path)
+            .open(&path)
             .await?;
 
         Ok(Self {
@@ -84,6 +88,7 @@ impl IOHandler {
     }
 }
 
+#[derive(Debug)]
 pub struct IOHandlerFactory {
     base_dir: Arc<PathBuf>,
 }
@@ -100,14 +105,15 @@ impl IOHandlerFactory {
         }
     }
 
-    fn store_path(&self, block: u64, level: u32) -> PathBuf {
+    fn store_path(&self, key: SSTableKey) -> PathBuf {
         let mut path = self.base_dir.to_path_buf();
-        path.push(format!("{:016x}.l{}", block, level));
+        let level = key.level();
+        path.push(format!("{:x}.l{}", key, level));
         path
     }
 
-    pub async fn create(&self, block: u64, level: u32) -> Result<IOHandler> {
-        let path = self.store_path(block, level);
+    pub async fn create(&self, key: SSTableKey) -> Result<IOHandler> {
+        let path = self.store_path(key);
         IOHandler::new(&path).await
     }
 }
@@ -117,9 +123,11 @@ mod test {
     use super::*;
 
     #[tokio::test]
-    async fn test_io_handler() -> Result<()> {
+    async fn it_works() -> Result<()> {
         let factory = IOHandlerFactory::new("helper/test");
-        let io_handler = factory.create(0, 0).await?;
+        let key = SSTableKey::new(0u64);
+
+        let io_handler = factory.create(key).await?;
         io_handler.write(b"hello world").await?;
 
         io_handler.flush().await?;

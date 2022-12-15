@@ -1,8 +1,12 @@
+use tokio::sync::RwLock;
+
+use super::manifest::Manifest;
 use super::mem::{MemTable, DataBlock};
 use super::*;
 use std::fs::File;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::sync::Arc;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct TableId(pub u64);
@@ -20,6 +24,7 @@ pub struct Table {
     id: TableId,
     name: String,
     mem: MemTable,
+    manifest: Arc<RwLock<Manifest>>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -40,10 +45,13 @@ impl Table {
         // open the table file, create if not exists
         File::create(&table_name).map_err(|_| TableError::FileCreateError)?;
 
+        let table_name_ref = table_name.as_str();
+
         Ok(Table {
-            id: TableId::new(&table_name),
-            name: table_name,
+            id: TableId::new(table_name_ref),
+            name: table_name.clone(),
             mem: MemTable::new(),
+            manifest: Arc::new(RwLock::new(Manifest::new(table_name_ref))),
         })
     }
 
