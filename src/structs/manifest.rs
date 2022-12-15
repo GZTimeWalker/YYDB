@@ -82,15 +82,15 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() {
-        let test_dir = "helper/sstable";
+        let test_dir = "helper/sstable_test";
 
         std::fs::remove_dir_all(test_dir).ok();
         std::fs::create_dir_all(test_dir).unwrap();
 
         let mut manifest = Manifest::new(test_dir).await;
 
-        for _ in 0..10 {
-            let rnd = rand::random::<u32>() % 6;
+        for _ in 0..5 {
+            let rnd = rand::random::<u32>() % 3;
             let mut meta = SSTableMeta::default();
             meta.key = SSTableKey::new(rnd);
             manifest

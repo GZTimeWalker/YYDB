@@ -123,7 +123,12 @@ mod test {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
-        let factory = IOHandlerFactory::new("helper/test");
+        let test_dir = "helper/io_test";
+
+        std::fs::remove_dir_all(test_dir).ok();
+        std::fs::create_dir_all(test_dir).unwrap();
+
+        let factory = IOHandlerFactory::new(test_dir);
         let key = SSTableKey::new(0u64);
 
         let io_handler = factory.create(key).await?;

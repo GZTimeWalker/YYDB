@@ -102,7 +102,6 @@ impl SizedOnDisk for Table {
 mod tests {
     use super::*;
     use crate::utils::error::Result;
-    use std::path::PathBuf;
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
@@ -132,9 +131,6 @@ mod tests {
         assert_eq!(table.get(key).await, DataStore::Deleted);
 
         assert_eq!(table.get(2).await, DataStore::NotFound);
-
-        let table_path = PathBuf::from(test_dir);
-        std::fs::remove_dir_all(table_path)?;
 
         Ok(())
     }
