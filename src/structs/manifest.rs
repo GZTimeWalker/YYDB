@@ -86,11 +86,9 @@ impl SizedOnDisk for Manifest {
     }
 }
 
-impl WithIOConfig for Manifest {}
-
 #[async_trait]
 impl AsyncToIO for Manifest {
-    /// write the mainfest's data to disk
+    /// write the manifest's data to disk
     ///
     /// the order is `magic_number`, `table_id`,
     /// `row_size`, `bloom_filter`, `tables`
@@ -106,7 +104,7 @@ impl AsyncToIO for Manifest {
         io.write_u64(self.table_id.0).await?;
         io.write_u32(self.row_size.unwrap()).await?;
 
-        let bytes = bincode::encode_to_vec(&self.global_bloom_filter, Self::CONF)?;
+        let bytes = bincode::encode_to_vec(&self.global_bloom_filter, BIN_CODE_CONF)?;
         io.write_u32(bytes.len() as u32).await?;
         io.write(&bytes).await?;
 
@@ -114,7 +112,7 @@ impl AsyncToIO for Manifest {
             io.write_u64(key.0).await?;
             // write the meta only
             let meta = table.meta();
-            let bytes = bincode::encode_to_vec(meta, Self::CONF)?;
+            let bytes = bincode::encode_to_vec(meta, BIN_CODE_CONF)?;
             io.write_u32(bytes.len() as u32).await?;
             io.write(&bytes).await?;
         }
@@ -144,17 +142,22 @@ impl AsyncFromIO for Manifest {
         let filter_size = file_io.read_u32().await?;
         let mut bytes = vec![0; filter_size as usize];
         file_io.read_exact(&mut bytes).await?;
-        let global_bloom_filter: BloomFilter = bincode::decode_from_slice(&bytes, Self::CONF)?.0;
+        let global_bloom_filter: BloomFilter = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0;
 
         let mut tables = AvlTreeMap::new();
 
         loop {
             if let Ok(rawkey) = file_io.read_u64().await {
                 let key = SSTableKey(rawkey);
+
+                if !key.valid() {
+                    return Err(DbError::InvalidSSTableKey);
+                }
+
                 let size = file_io.read_u32().await?;
                 let mut bytes = vec![0; size as usize];
                 file_io.read_exact(&mut bytes).await?;
-                let meta: SSTableMeta = bincode::decode_from_slice(&bytes, Self::CONF)?.0;
+                let meta: SSTableMeta = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0;
                 let table = SSTable::new(meta, &factory).await;
                 tables.insert(key, table);
             } else {

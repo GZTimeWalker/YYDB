@@ -4,7 +4,8 @@ use std::fmt::Formatter;
 
 use growable_bloom_filter::GrowableBloom;
 
-pub const MEM_BLOCK_NUM: usize = 0x40;
+use crate::structs::MEM_BLOCK_NUM;
+
 pub const MAX_EXPECT_NUM: usize = 0xff000;
 pub const MERGE_FACTOR: usize = 4;
 

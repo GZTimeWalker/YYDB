@@ -35,11 +35,13 @@ impl Table {
         let table_name = &table_name;
         std::fs::create_dir_all(table_name)?;
 
+        let manifest = Arc::new(RwLock::new(Manifest::new(table_name).await));
+
         Ok(Table {
             id: TableId::new(table_name),
             name: table_name.to_string(),
-            memtable: MemTable::new(table_name).await,
-            manifest: Arc::new(RwLock::new(Manifest::new(table_name).await)),
+            memtable: MemTable::new(table_name, Some(manifest.clone())).await,
+            manifest,
         })
     }
 

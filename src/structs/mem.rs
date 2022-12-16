@@ -11,30 +11,37 @@ use tokio::sync::RwLock;
 use crate::structs::CACHE_MAGIC_NUMBER;
 use crate::utils::*;
 
-use super::kvstore::*;
+use super::manifest::Manifest;
+use super::{kvstore::*, MEM_BLOCK_NUM};
 
 pub type MemStore = BTreeMap<u64, DataStore>;
 
 #[derive(Debug)]
 pub struct MemTable {
-    mut_map: RwLock<MemStore>,
-    lock_map: RwLock<MemStore>,
+    mut_map: Arc<RwLock<MemStore>>,
+    lock_map: Arc<RwLock<MemStore>>,
+    manifest: Option<Arc<RwLock<Manifest>>>,
     io: IOHandler,
 }
 
 impl MemTable {
-    pub async fn new(table_name: impl Into<PathBuf>) -> Self {
+    pub async fn new(
+        table_name: impl Into<PathBuf>,
+        manifest: Option<Arc<RwLock<Manifest>>>,
+    ) -> Self {
         let path: PathBuf = table_name.into().join(".cache");
         let io = IOHandler::new(&path).await.unwrap();
 
         debug!("MemTable path: {:?}", path);
 
-        if let Ok(mem) = MemTable::from_io(&io).await {
+        if let Ok(mut mem) = MemTable::from_io(&io).await {
+            mem.manifest = manifest;
             mem
         } else {
             Self {
-                mut_map: RwLock::new(BTreeMap::new()),
-                lock_map: RwLock::new(BTreeMap::new()),
+                manifest,
+                mut_map: Arc::new(RwLock::new(BTreeMap::new())),
+                lock_map: Arc::new(RwLock::new(BTreeMap::new())),
                 io: IOHandler::new(&path).await.unwrap(),
             }
         }
@@ -46,6 +53,30 @@ impl MemTable {
 
         lock_map.clear();
         std::mem::swap(&mut *mut_map, &mut *lock_map);
+    }
+
+    async fn do_persist(&self) {
+        if self.mut_map.read().await.len() > MEM_BLOCK_NUM {
+            self.swap().await;
+
+            let locked_map = self.lock_map.clone();
+            crate::core::runtime::spawn(async move {
+                Self::persist(&locked_map).await;
+            });
+        }
+    }
+
+    async fn persist(_locked_map: &Arc<RwLock<MemStore>>) {
+        // 1. create a new L0 SSTable
+        // 2. calculate the checksum of the SSTable
+        // 3. write the magic number to the SSTable
+        // 4. write the checksum to the SSTable
+        // 5. write the compressed data to the SSTable
+
+        // let data = locked_map.write().await.iter().collect::<Vec<_>>();
+
+        // let bytes = bincode::encode_to_vec(&data, BIN_CODE_CONF).unwrap();
+
     }
 }
 
@@ -78,10 +109,12 @@ impl AsyncKVStoreWrite for MemTable {
             .write()
             .await
             .insert(key, DataStore::Value(Arc::new(value)));
+        self.do_persist().await;
     }
 
     async fn delete(&self, key: u64) {
         self.mut_map.write().await.insert(key, DataStore::Deleted);
+        self.do_persist().await;
     }
 }
 
@@ -124,17 +157,16 @@ impl AsyncFromIO for MemTable {
             return Err(DbError::MissChecksum);
         }
 
-        let mut_map: MemStore = bincode::decode_from_slice(&bytes, Self::CONF)?.0;
+        let mut_map: MemStore = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0;
 
         Ok(Self {
-            mut_map: RwLock::new(mut_map),
-            lock_map: RwLock::new(BTreeMap::new()),
+            manifest: None,
+            mut_map: Arc::new(RwLock::new(mut_map)),
+            lock_map: Arc::new(RwLock::new(BTreeMap::new())),
             io: io.clone().await?,
         })
     }
 }
-
-impl WithIOConfig for MemTable {}
 
 #[async_trait]
 impl AsyncToIO for MemTable {
@@ -148,7 +180,7 @@ impl AsyncToIO for MemTable {
             cache_map.insert(*key, value.clone());
         }
 
-        let bytes = bincode::encode_to_vec(cache_map, Self::CONF)?;
+        let bytes = bincode::encode_to_vec(cache_map, BIN_CODE_CONF)?;
 
         let mut hasher = Hasher::new();
         hasher.update(&bytes);
@@ -183,7 +215,7 @@ mod test {
         let path = PathBuf::from(test_dir);
 
         {
-            let mem = MemTable::new(path.clone()).await;
+            let mem = MemTable::new(path.clone(), None).await;
 
             mem.set(1, vec![1, 2, 3]).await;
             mem.set(2, vec![4, 5, 6]).await;
@@ -257,5 +289,38 @@ mod test {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn decode_works() {
+        let mut mut_map = MemStore::new();
+
+        for i in 0..64 {
+            mut_map.insert(i, DataStore::Value(Arc::new(vec![i as u8; 4])));
+            if i % 7 == 3 {
+                mut_map.insert(i, DataStore::Deleted);
+            } else if i % 7 == 5 {
+                mut_map.insert(i, DataStore::NotFound);
+            }
+        }
+
+        let data = mut_map.iter().collect::<Vec<_>>();
+        let bytes = bincode::encode_to_vec(&data, BIN_CODE_CONF).unwrap();
+        print_hex_view(&bytes);
+
+        let (mut count, mut pos) = bincode::decode_from_slice::<u64, BincodeConfig>(&bytes, BIN_CODE_CONF).unwrap();
+        while count > 0 {
+            let slice = &bytes[pos..];
+            if let Ok((data_store, offset)) = bincode::decode_from_slice::<(u64, DataStore), BincodeConfig>
+                (slice, BIN_CODE_CONF) {
+                if let DataStore::Value(value) = data_store.1 {
+                    assert_eq!(value.as_ref(), &vec![data_store.0 as u8; 4]);
+                }
+                pos += offset;
+            } else {
+                break;
+            }
+            count -= 1;
+        }
     }
 }

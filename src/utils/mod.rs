@@ -7,11 +7,15 @@ pub mod error;
 pub mod io_handler;
 pub mod logger;
 
+use bincode::config::*;
 pub use bloom_filter::*;
 pub use data_store::*;
 pub use error::*;
 pub use io_handler::*;
 pub use macros::*;
+
+pub type BincodeConfig = Configuration;
+pub const BIN_CODE_CONF: BincodeConfig = bincode::config::standard();
 
 pub fn print_hex_view(buffer: &[u8]) {
     let mut i = 0;
