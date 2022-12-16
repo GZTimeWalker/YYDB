@@ -11,18 +11,18 @@ pub enum DataStore {
     NotFound,
 }
 
-impl Into<Option<Data>> for DataStore {
-    fn into(self) -> Option<Data> {
-        match self {
+impl From<DataStore> for Option<Data> {
+    fn from(data: DataStore) -> Self {
+        match data {
             DataStore::Value(value) => Some(value),
             _ => None,
         }
     }
 }
 
-impl Into<Result<Option<Data>>> for DataStore {
-    fn into(self) -> Result<Option<Data>> {
-        match self {
+impl From<DataStore> for Result<Option<Data>> {
+    fn from(data: DataStore) -> Self {
+        match data {
             DataStore::Value(value) => Ok(Some(value)),
             DataStore::Deleted => Ok(None),
             DataStore::NotFound => Err(DbError::KeyNotFound),

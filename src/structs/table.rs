@@ -33,7 +33,7 @@ impl Table {
         info!("Opening table: {}", table_name);
 
         let table_name = table_name.as_str();
-        std::fs::create_dir_all(&table_name)?;
+        std::fs::create_dir_all(table_name)?;
 
         Ok(Table {
             id: TableId::new(table_name),
@@ -69,10 +69,7 @@ impl AsyncKVStoreRead for Table {
 
         let manifest = self.manifest.read().await;
 
-        match manifest.get(key).await {
-            DataStore::Value(value) => DataStore::Value(value),
-            x => x,
-        }
+        manifest.get(key).await
     }
 
     async fn len(&self) -> usize {
@@ -83,6 +80,10 @@ impl AsyncKVStoreRead for Table {
 #[async_trait]
 impl AsyncKVStoreWrite for Table {
     async fn set(&self, key: u64, value: Vec<u8>) {
+        self.manifest
+            .write()
+            .await
+            .with_row_size(value.len() as u32);
         self.memtable.set(key, value).await
     }
 

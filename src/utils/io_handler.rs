@@ -42,7 +42,6 @@ impl IOHandler {
     pub async fn checksum(&self) -> Result<u32> {
         let mut hasher = Hasher::new();
         let mut reader = self.file.lock().await;
-        reader.seek(SeekFrom::Start(0)).await?;
         let mut buf = [0u8; 32 * 1024];
         loop {
             let len = reader.read(&mut buf).await?;
@@ -57,6 +56,11 @@ impl IOHandler {
     pub async fn read(&self, buf: &mut [u8]) -> Result<usize> {
         let len = self.file.lock().await.read(buf).await?;
         Ok(len)
+    }
+
+    pub async fn read_to_end(&self, buf: &mut Vec<u8>) -> Result<()> {
+        self.file.lock().await.read_to_end(buf).await?;
+        Ok(())
     }
 
     pub async fn write(&self, buf: &[u8]) -> Result<()> {
@@ -76,6 +80,10 @@ impl IOHandler {
 
     pub async fn inner(&self) -> Result<MutexGuard<File>> {
         Ok(self.file.lock().await)
+    }
+
+    pub async fn is_empty(&self) -> Result<bool> {
+        Ok(self.file_size().await? == 0)
     }
 
     /// delete the file
@@ -142,6 +150,8 @@ mod test {
         io_handler.read(&mut buf).await?;
 
         assert_eq!(b"hello world", &buf);
+
+        io_handler.seek(SeekFrom::Start(0)).await?;
 
         let checksum = io_handler.checksum().await?;
         assert_eq!(checksum, 0xd4a1185);

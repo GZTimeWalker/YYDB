@@ -25,3 +25,15 @@ pub trait SizedOnDisk {
     /// Get the size of the store on disk
     async fn size_on_disk(&self) -> Result<u64>;
 }
+
+#[async_trait]
+pub trait AsyncFromIO: Sized {
+    /// Create a new instance from an IOHandler
+    async fn from_io(io: IOHandler) -> Result<Self>;
+}
+
+#[async_trait]
+pub trait AsyncToIO {
+    /// Write the instance to an IOHandler
+    async fn to_io(&self) -> Result<()>;
+}

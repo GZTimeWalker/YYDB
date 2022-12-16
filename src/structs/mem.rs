@@ -1,10 +1,14 @@
 use async_trait::async_trait;
+use crc32fast::Hasher;
 use std::collections::BTreeMap;
+use std::io::SeekFrom;
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 use tokio::sync::RwLock;
 
+use crate::structs::CACHE_MAGIC_NUMBER;
 use crate::utils::*;
 
 use super::kvstore::*;
@@ -25,12 +29,14 @@ impl MemTable {
 
         debug!("MemTable path: {:?}", path);
 
-        // TODO: load memtable from disk cache
-
-        Self {
-            mut_map: RwLock::new(BTreeMap::new()),
-            lock_map: RwLock::new(BTreeMap::new()),
-            io,
+        if let Ok(mem) = MemTable::from_io(io).await {
+            mem
+        } else {
+            Self {
+                mut_map: RwLock::new(BTreeMap::new()),
+                lock_map: RwLock::new(BTreeMap::new()),
+                io: IOHandler::new(&path).await.unwrap(),
+            }
         }
     }
 
@@ -84,16 +90,168 @@ impl Drop for MemTable {
         debug!("Saving memtable...");
 
         futures::executor::block_on(async move {
-            let mut mut_map = self.mut_map.write().await;
-            let mut lock_map = self.lock_map.write().await;
-
-            for (key, value) in lock_map.iter() {
-                mut_map.insert(*key, value.clone());
-            }
-
-            lock_map.clear();
+            self.to_io().await.unwrap();
         });
+    }
+}
 
-        // TODO: flush memtable into disk cache
+#[async_trait]
+impl AsyncFromIO for MemTable {
+    async fn from_io(io: IOHandler) -> Result<Self> {
+        if let Ok(true) = io.is_empty().await {
+            return Err(DbError::EmptyFile);
+        }
+
+        io.seek(SeekFrom::Start(0)).await?;
+
+        let magic_number = io.inner().await?.read_u32().await?;
+
+        if magic_number != CACHE_MAGIC_NUMBER {
+            return Err(DbError::MissMagicNumber);
+        }
+
+        let crc32 = io.inner().await?.read_u32().await?;
+
+        let mut bytes = Vec::new();
+        io.read_to_end(&mut bytes).await?;
+
+        let mut hasher = Hasher::new();
+        hasher.update(&bytes);
+
+        if hasher.finalize() != crc32 {
+            return Err(DbError::MissChecksum);
+        }
+
+        let config = bincode::config::standard();
+        let mut_map: MemStore = bincode::decode_from_slice(&bytes, config)?.0;
+
+        Ok(Self {
+            mut_map: RwLock::new(mut_map),
+            lock_map: RwLock::new(BTreeMap::new()),
+            io,
+        })
+    }
+}
+
+#[async_trait]
+impl AsyncToIO for MemTable {
+    async fn to_io(&self) -> Result<()> {
+        let mut_map = self.mut_map.read().await;
+        let lock_map = self.lock_map.read().await;
+
+        let mut cache_map = lock_map.clone();
+
+        for (key, value) in mut_map.iter() {
+            cache_map.insert(*key, value.clone());
+        }
+
+        let config = bincode::config::standard();
+
+        let bytes = bincode::encode_to_vec(cache_map, config)?;
+
+        let mut hasher = Hasher::new();
+        hasher.update(&bytes);
+        let crc32 = hasher.finalize();
+
+        self.io.seek(SeekFrom::Start(0)).await?;
+        self.io.inner().await?.write_u32(CACHE_MAGIC_NUMBER).await?;
+        self.io.inner().await?.write_u32(crc32).await?;
+        self.io.write(&bytes).await?;
+        self.io.flush().await?;
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::structs::CACHE_MAGIC_NUMBER;
+    use std::path::PathBuf;
+    use tokio::io::AsyncReadExt;
+
+    #[tokio::test]
+    async fn it_works() -> Result<()> {
+        let test_dir = "helper/memtable_test";
+
+        std::fs::remove_dir_all(test_dir).ok();
+        std::fs::create_dir_all(test_dir).unwrap();
+
+        let path = PathBuf::from(test_dir);
+
+        {
+            let mem = MemTable::new(path.clone()).await;
+
+            mem.set(1, vec![1, 2, 3]).await;
+            mem.set(2, vec![4, 5, 6]).await;
+            mem.set(3, vec![7, 8, 9]).await;
+
+            assert_eq!(mem.get(1).await, DataStore::Value(Arc::new(vec![1, 2, 3])));
+            assert_eq!(mem.get(2).await, DataStore::Value(Arc::new(vec![4, 5, 6])));
+            assert_eq!(mem.get(3).await, DataStore::Value(Arc::new(vec![7, 8, 9])));
+
+            mem.delete(2).await;
+
+            assert_eq!(mem.get(2).await, DataStore::Deleted);
+
+            mem.swap().await;
+
+            assert_eq!(mem.get(1).await, DataStore::Value(Arc::new(vec![1, 2, 3])));
+            assert_eq!(mem.get(2).await, DataStore::Deleted);
+            assert_eq!(mem.get(3).await, DataStore::Value(Arc::new(vec![7, 8, 9])));
+            assert_eq!(mem.get(4).await, DataStore::NotFound);
+
+            mem.set(4, vec![10, 11, 12]).await;
+
+            assert_eq!(
+                mem.get(4).await,
+                DataStore::Value(Arc::new(vec![10, 11, 12]))
+            );
+
+            mem.to_io().await?;
+        }
+
+        {
+            let io = IOHandler::new(&path.join(".cache")).await?;
+
+            let magic_number = io.inner().await?.read_u32().await?;
+
+            assert_eq!(magic_number, CACHE_MAGIC_NUMBER);
+
+            let crc32 = io.inner().await?.read_u32().await?;
+
+            let mut bytes = Vec::new();
+            io.read_to_end(&mut bytes).await?;
+
+            let mut hasher = Hasher::new();
+            hasher.update(&bytes);
+
+            assert_eq!(hasher.finalize(), crc32);
+
+            let config = bincode::config::standard();
+            let mut_map: MemStore = bincode::decode_from_slice(&bytes, config)?.0;
+
+            assert_eq!(mut_map.len(), 4);
+
+            assert_eq!(
+                mut_map.get(&1),
+                Some(&DataStore::Value(Arc::new(vec![1, 2, 3])))
+            );
+            assert_eq!(mut_map.get(&2), Some(&DataStore::Deleted));
+        }
+
+        {
+            let mem = MemTable::from_io(IOHandler::new(&path.join(".cache")).await?).await?;
+
+            assert_eq!(mem.get(1).await, DataStore::Value(Arc::new(vec![1, 2, 3])));
+            assert_eq!(mem.get(2).await, DataStore::Deleted);
+            assert_eq!(mem.get(3).await, DataStore::Value(Arc::new(vec![7, 8, 9])));
+            assert_eq!(
+                mem.get(4).await,
+                DataStore::Value(Arc::new(vec![10, 11, 12]))
+            );
+        }
+
+        Ok(())
     }
 }

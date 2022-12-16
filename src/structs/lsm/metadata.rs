@@ -7,10 +7,20 @@ pub struct SSTableMeta {
     pub key: SSTableKey,
     pub checksum: u32,
     pub level: u32,
-    pub row_size: u32,
 
     #[bincode(with_serde)]
     pub bloom_filter: GrowableBloom,
+}
+
+impl SSTableMeta {
+    pub fn new(key: SSTableKey, level: u32) -> Self {
+        Self {
+            key,
+            checksum: 0,
+            level,
+            bloom_filter: GrowableBloom::new(0.05, 64),
+        }
+    }
 }
 
 impl Default for SSTableMeta {
@@ -19,7 +29,6 @@ impl Default for SSTableMeta {
             key: SSTableKey::new(0u64),
             checksum: 0,
             level: 0,
-            row_size: 0,
             // bloom filter's parameters may be different in different level
             bloom_filter: GrowableBloom::new(0.05, 64),
         }

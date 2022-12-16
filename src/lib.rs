@@ -4,6 +4,7 @@
 extern crate bincode;
 #[macro_use]
 extern crate log;
+extern crate lazy_static;
 #[macro_use]
 mod utils;
 

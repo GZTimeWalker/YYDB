@@ -11,9 +11,10 @@ use crate::utils::*;
 
 #[derive(Debug)]
 pub struct Manifest {
-    tables: AvlTreeMap<SSTableKey, SSTable>,
-    factory: IOHandlerFactory,
     io: IOHandler,
+    factory: IOHandlerFactory,
+    row_size: Option<u32>,
+    tables: AvlTreeMap<SSTableKey, SSTable>,
 }
 
 impl Manifest {
@@ -31,6 +32,13 @@ impl Manifest {
             io,
             tables: AvlTreeMap::new(),
             factory: IOHandlerFactory::new(&table_name),
+            row_size: None,
+        }
+    }
+
+    pub fn with_row_size(&mut self, row_size: u32) {
+        if self.row_size.is_none() {
+            self.row_size = Some(row_size);
         }
     }
 }

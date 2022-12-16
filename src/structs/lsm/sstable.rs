@@ -2,7 +2,10 @@ use std::fmt::{Debug, LowerHex};
 
 use async_trait::async_trait;
 
-use crate::{structs::kvstore::*, utils::*};
+use crate::{
+    structs::{kvstore::*, mem::MemStore},
+    utils::*,
+};
 
 use super::metadata::SSTableMeta;
 
@@ -23,6 +26,10 @@ impl SSTable {
 
     pub fn meta(&self) -> &SSTableMeta {
         &self.meta
+    }
+
+    pub async fn archive(&self, _mem: &MemStore) {
+        assert_eq!(self.meta.level, 0);
     }
 }
 
