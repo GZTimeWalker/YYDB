@@ -1,12 +1,23 @@
 use futures::Future;
-use once_cell::sync::OnceCell;
 use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
 use crate::structs::table::{Table, TableId};
 
-static RUNTIME: OnceCell<Runtime> = OnceCell::new();
+lazy_static! {
+    static ref RUNTIME: Runtime = {
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        Runtime {
+            tokio_rt: rt,
+            tables: RwLock::new(BTreeMap::new()),
+        }
+    };
+}
 
 /// The runtime of YYDB.
 ///
@@ -99,17 +110,7 @@ pub async fn close_table(id: &TableId) -> Option<Arc<Table>> {
 
 impl Runtime {
     pub fn global() -> &'static Runtime {
-        RUNTIME.get_or_init(|| {
-            let rt = tokio::runtime::Builder::new_multi_thread()
-                .enable_all()
-                .build()
-                .unwrap();
-
-            Runtime {
-                tokio_rt: rt,
-                tables: RwLock::new(BTreeMap::new()),
-            }
-        })
+        &RUNTIME
     }
 }
 
@@ -123,11 +124,10 @@ mod tests {
     fn it_works() {
         super::block_on(async {
             let futures = (0..10)
-                .map(|i| {
+                .map(|_| rand::thread_rng().gen_range(0..=500))
+                .map(|delay| {
                     super::spawn(async move {
-                        let delay = rand::thread_rng().gen_range(0..=500);
                         tokio::time::sleep(Duration::from_millis(delay)).await;
-                        debug!("YYDB async task: {} @ {:>3}ms", i, delay);
                     })
                 })
                 .collect::<Vec<_>>();

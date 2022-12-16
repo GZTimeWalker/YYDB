@@ -27,7 +27,7 @@ pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32) {
 
     let data = std::slice::from_raw_parts(data, len as usize);
 
-    crate::utils::print_hex_view(data);
+    crate::utils::print_hex_view(data).unwrap();
 
     run_async! {
         if let Some(table) = super::runtime::get_table(&TableId(table_id)).await {
@@ -64,7 +64,7 @@ pub fn delete_row(table_id: u64, key: u64) {
 /// mysql will pass a pointer to a buffer, and we need to fill it with data
 pub unsafe fn put_hex(data: *const u8, len: u32) {
     let data = std::slice::from_raw_parts(data, len as usize);
-    crate::utils::print_hex_view(data);
+    crate::utils::print_hex_view(data).unwrap();
 }
 
 pub fn rnd_init(_table_id: u64) {

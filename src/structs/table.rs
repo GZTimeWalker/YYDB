@@ -6,6 +6,7 @@ use super::manifest::Manifest;
 use super::mem::MemTable;
 use crate::utils::*;
 use std::collections::hash_map::DefaultHasher;
+use std::fmt::{Formatter, LowerHex};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
 
@@ -20,6 +21,12 @@ impl TableId {
     }
 }
 
+impl LowerHex for TableId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:016x}", self.0)
+    }
+}
+
 #[derive(Debug)]
 pub struct Table {
     id: TableId,
@@ -30,7 +37,8 @@ pub struct Table {
 
 impl Table {
     pub async fn open(table_name: String) -> Result<Table> {
-        info!("Opening table: {}", table_name);
+        let table_id = TableId::new(&table_name);
+        info!("Open table   : \t[{}]#{:x}", table_name, table_id);
 
         let table_name = &table_name;
         std::fs::create_dir_all(table_name)?;
@@ -38,7 +46,7 @@ impl Table {
         let manifest = Arc::new(RwLock::new(Manifest::new(table_name).await));
 
         Ok(Table {
-            id: TableId::new(table_name),
+            id: table_id,
             name: table_name.to_string(),
             memtable: MemTable::new(table_name, Some(manifest.clone())).await,
             manifest,
@@ -56,13 +64,13 @@ impl Table {
 
 impl Drop for Table {
     fn drop(&mut self) {
-        info!("Closing table: {}", self.name);
+        info!("Close table  : \t[{}]#{:x}", self.name, self.id);
     }
 }
 
 #[async_trait]
 impl AsyncKVStoreRead for Table {
-    async fn get(&self, key: u64) -> DataStore {
+    async fn get(&self, key: Key) -> DataStore {
         match self.memtable.get(key).await {
             DataStore::Value(value) => return DataStore::Value(value),
             DataStore::Deleted => return DataStore::Deleted,
@@ -81,7 +89,7 @@ impl AsyncKVStoreRead for Table {
 
 #[async_trait]
 impl AsyncKVStoreWrite for Table {
-    async fn set(&self, key: u64, value: Vec<u8>) {
+    async fn set(&self, key: Key, value: DataInner) {
         self.manifest
             .write()
             .await
@@ -89,7 +97,7 @@ impl AsyncKVStoreWrite for Table {
         self.memtable.set(key, value).await
     }
 
-    async fn delete(&self, key: u64) {
+    async fn delete(&self, key: Key) {
         self.memtable.delete(key).await
     }
 }

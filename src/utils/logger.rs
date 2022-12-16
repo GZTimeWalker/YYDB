@@ -1,14 +1,31 @@
 use log::{LevelFilter, Metadata, Record};
-use once_cell::sync::OnceCell;
 
-static LOGGER: OnceCell<Logger> = OnceCell::new();
+#[cfg(not(release))]
+lazy_static! {
+    static ref LOGGER: Logger = {
+        Logger {
+            output: |_, message| {
+                println!("{}", message);
+            },
+        }
+    };
+}
+
+#[cfg(release)]
+lazy_static! {
+    static ref LOGGER: Logger = {
+        Logger {
+            output: |level, message| crate::bridge::ffi::mysql_log_write(level as i32, message),
+        }
+    };
+}
 
 /// Init the logger of YYDB.
 pub(crate) fn init() {
     // an error will be returned if the logger was
     // already initialized. this situation is expected
     // when we reinstall the plugin.
-    log::set_logger(Logger::global()).ok();
+    log::set_logger(&*LOGGER).ok();
 
     log::set_max_level(match option_env!("LOG_LEVEL") {
         Some("error") => LevelFilter::Error,
@@ -28,24 +45,6 @@ struct Logger {
 }
 
 impl Logger {
-    pub fn global() -> &'static Logger {
-        LOGGER.get_or_init(|| {
-            let profile = std::env::var("RUST_DEBUG");
-            match profile {
-                Ok(_) => Logger {
-                    output: |_, message| {
-                        println!("{}", message);
-                    },
-                },
-                _ => Logger {
-                    output: |level, message| {
-                        crate::bridge::ffi::mysql_log_write(level as i32, message)
-                    },
-                },
-            }
-        })
-    }
-
     fn get_formatted_message(&self, record: &Record) -> String {
         match record.level() {
             log::Level::Error => format!(

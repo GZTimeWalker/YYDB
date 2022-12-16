@@ -28,7 +28,7 @@ impl Manifest {
         let table_name: PathBuf = table_name.into();
         let path = PathBuf::from(&table_name).join(".meta");
 
-        debug!("Manifest path: {:?}", path);
+        debug!("Load manifest: \t{:?}", path);
 
         let io = IOHandler::new(&path).await.unwrap();
 
@@ -55,7 +55,7 @@ impl Manifest {
 
 #[async_trait]
 impl AsyncKVStoreRead for Manifest {
-    async fn get(&self, key: u64) -> DataStore {
+    async fn get(&self, key: Key) -> DataStore {
         for table in self.tables.values() {
             return match table.get(key).await {
                 DataStore::Value(block) => DataStore::Value(block),
@@ -158,7 +158,7 @@ impl AsyncFromIO for Manifest {
                 let mut bytes = vec![0; size as usize];
                 file_io.read_exact(&mut bytes).await?;
                 let meta: SSTableMeta = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0;
-                let table = SSTable::new(meta, &factory).await;
+                let table = SSTable::new(meta, &factory, row_size).await;
                 tables.insert(key, table);
             } else {
                 break;
@@ -178,7 +178,7 @@ impl AsyncFromIO for Manifest {
 
 impl Drop for Manifest {
     fn drop(&mut self) {
-        debug!("Saving manifest...");
+        debug!("Save manifest: \t{:?}", self.io.file_path);
 
         futures::executor::block_on(async move {
             self.to_io(&self.io).await.unwrap();
@@ -201,7 +201,8 @@ mod tests {
 
         {
             let mut manifest = Manifest::new(test_dir).await;
-            manifest.with_row_size(10);
+            let row_size = 10;
+            manifest.with_row_size(row_size);
 
             for _ in 0..7 {
                 tokio::time::sleep(std::time::Duration::from_millis(10)).await;
@@ -210,9 +211,10 @@ mod tests {
                 let key = SSTableKey::new(rnd);
                 let meta = SSTableMeta::new(key, rand::random::<u32>());
 
-                manifest
-                    .tables
-                    .insert(meta.key, SSTable::new(meta, &manifest.factory).await);
+                manifest.tables.insert(
+                    meta.key,
+                    SSTable::new(meta, &manifest.factory, row_size).await,
+                );
             }
 
             assert_eq!(manifest.tables.len(), 7);

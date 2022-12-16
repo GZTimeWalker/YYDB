@@ -1,27 +1,32 @@
-use std::fmt::{Debug, LowerHex};
+use std::{
+    fmt::{Debug, LowerHex},
+    path::PathBuf,
+    sync::Arc,
+};
 
 use async_trait::async_trait;
 use chrono::TimeZone;
+use tokio::{fs, sync::Mutex};
 
-use crate::{
-    structs::{kvstore::*, mem::MemStore},
-    utils::*,
-};
+use crate::{structs::*, utils::*};
 
-use super::metadata::SSTableMeta;
+use super::*;
 
 #[derive(Debug)]
 pub struct SSTable {
     meta: SSTableMeta,
-    io: IOHandler,
+    iter: Mutex<SSTableIter>,
+    file_name: Arc<PathBuf>,
 }
 
 impl SSTable {
-    pub async fn new(meta: SSTableMeta, factory: &IOHandlerFactory) -> Self {
+    pub async fn new(meta: SSTableMeta, factory: &IOHandlerFactory, row_size: u32) -> Self {
         let key = meta.key;
+        let io = factory.create(key).await.unwrap();
         Self {
             meta,
-            io: factory.create(key).await.unwrap(),
+            file_name: io.file_path.clone(),
+            iter: Mutex::new(SSTableIter::new(io, row_size)),
         }
     }
 
@@ -36,26 +41,22 @@ impl SSTable {
 
 #[async_trait]
 impl AsyncKVStoreRead for SSTable {
-    async fn get(&self, _key: u64) -> DataStore {
+    async fn get(&self, _key: Key) -> DataStore {
         if !self.meta.bloom_filter.contains(_key) {
             return DataStore::NotFound;
         }
-
-        // todo!()
-
-        DataStore::NotFound
+        todo!();
     }
 
     async fn len(&self) -> usize {
-        // todo!()
-        0
+        todo!();
     }
 }
 
 #[async_trait]
 impl SizedOnDisk for SSTable {
     async fn size_on_disk(&self) -> Result<u64> {
-        self.io.size_on_disk().await
+        Ok(fs::metadata(self.file_name.as_ref()).await?.len())
     }
 }
 
@@ -113,10 +114,11 @@ mod tests {
     #[test]
     fn it_works() {
         let mut keys = vec![];
-        for i in 0..3u64 {
+        for i in 0..6u64 {
             keys.push(SSTableKey::new(i));
-            std::thread::sleep(std::time::Duration::from_millis(1));
+            std::thread::sleep(std::time::Duration::from_millis(5));
             keys.push(SSTableKey::new(i));
+            std::thread::sleep(std::time::Duration::from_millis(5));
         }
         keys.sort();
 

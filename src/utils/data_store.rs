@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use super::*;
 
-type Data = Arc<Vec<u8>>;
+pub type Key = u64;
+pub type KVStore = (Key, DataStore);
+pub type DataInner = Vec<u8>;
+pub type Data = Arc<DataInner>;
 
 #[derive(Debug, Clone, PartialEq, Eq, Encode, Decode)]
 pub enum DataStore {

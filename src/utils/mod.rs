@@ -8,6 +8,8 @@ pub mod io_handler;
 pub mod logger;
 
 use bincode::config::*;
+use std::fmt::Write;
+
 pub use bloom_filter::*;
 pub use data_store::*;
 pub use error::*;
@@ -17,47 +19,38 @@ pub use macros::*;
 pub type BincodeConfig = Configuration;
 pub const BIN_CODE_CONF: BincodeConfig = bincode::config::standard();
 
-pub fn print_hex_view(buffer: &[u8]) {
-    let mut i = 0;
+const HEX_VIEW_WIDTH: usize = 32;
+const HEX_VIEW_COL_WIDTH: usize = 8;
 
-    while i < buffer.len() {
-        // Print the line number.
-        print!("{:08x} | ", i);
-
-        // Print the hexadecimal values of each byte in the line.
-        for j in 0..32 {
+pub fn print_hex_view(buffer: &[u8]) -> Result<()> {
+    let mut buf = String::new();
+    for i in (0..buffer.len()).step_by(HEX_VIEW_WIDTH) {
+        write!(&mut buf, "| {:08x} | ", i)?;
+        for j in 0..HEX_VIEW_WIDTH {
             if i + j < buffer.len() {
-                print!("{:02x}", buffer[i + j]);
+                write!(&mut buf, "{:02x}", buffer[i + j])?;
             } else {
-                // If there are not enough bytes to fill the line,
-                // print spaces to align the ASCII values.
-                print!("  ");
+                write!(&mut buf, "  ")?;
             }
-
-            if j % 16 == 15 {
-                print!(" ");
+            if j % HEX_VIEW_COL_WIDTH == HEX_VIEW_COL_WIDTH - 1 {
+                write!(&mut buf, " ")?;
             }
         }
-        print!("| ");
-
-        // Print the ASCII values of each byte in the line.
-        for j in 0..32 {
+        write!(&mut buf, "| ")?;
+        for j in 0..HEX_VIEW_WIDTH {
             if i + j < buffer.len() {
                 if buffer[i + j].is_ascii_graphic() {
-                    // If the byte is an ASCII character, print it.
-                    print!("{}", buffer[i + j] as char);
+                    write!(&mut buf, "{}", buffer[i + j] as char)?;
                 } else {
-                    // If the byte is not an ASCII character, print a dot.
-                    print!(".");
+                    write!(&mut buf, ".")?;
                 }
             } else {
-                // If there are not enough bytes to fill the line,
-                // print spaces to align the ASCII values.
-                print!(" ");
+                write!(&mut buf, " ")?;
             }
         }
-        println!();
-
-        i += 32;
+        writeln!(&mut buf)?;
     }
+
+    debug!("Hex view for buffer ({} bytes):\n\n{}", buffer.len(), buf);
+    Ok(())
 }

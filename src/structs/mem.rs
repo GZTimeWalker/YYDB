@@ -14,7 +14,7 @@ use crate::utils::*;
 use super::manifest::Manifest;
 use super::{kvstore::*, MEM_BLOCK_NUM};
 
-pub type MemStore = BTreeMap<u64, DataStore>;
+pub type MemStore = BTreeMap<Key, DataStore>;
 
 #[derive(Debug)]
 pub struct MemTable {
@@ -32,7 +32,7 @@ impl MemTable {
         let path: PathBuf = table_name.into().join(".cache");
         let io = IOHandler::new(&path).await.unwrap();
 
-        debug!("MemTable path: {:?}", path);
+        debug!("Load memtable: \t{:?}", path);
 
         if let Ok(mut mem) = MemTable::from_io(&io).await {
             mem.manifest = manifest;
@@ -76,13 +76,12 @@ impl MemTable {
         // let data = locked_map.write().await.iter().collect::<Vec<_>>();
 
         // let bytes = bincode::encode_to_vec(&data, BIN_CODE_CONF).unwrap();
-
     }
 }
 
 #[async_trait]
 impl AsyncKVStoreRead for MemTable {
-    async fn get(&self, key: u64) -> DataStore {
+    async fn get(&self, key: Key) -> DataStore {
         if let Some(value) = self.mut_map.read().await.get(&key) {
             return value.clone();
         }
@@ -104,7 +103,7 @@ impl AsyncKVStoreRead for MemTable {
 
 #[async_trait]
 impl AsyncKVStoreWrite for MemTable {
-    async fn set(&self, key: u64, value: Vec<u8>) {
+    async fn set(&self, key: Key, value: DataInner) {
         self.mut_map
             .write()
             .await
@@ -112,7 +111,7 @@ impl AsyncKVStoreWrite for MemTable {
         self.do_persist().await;
     }
 
-    async fn delete(&self, key: u64) {
+    async fn delete(&self, key: Key) {
         self.mut_map.write().await.insert(key, DataStore::Deleted);
         self.do_persist().await;
     }
@@ -120,7 +119,7 @@ impl AsyncKVStoreWrite for MemTable {
 
 impl Drop for MemTable {
     fn drop(&mut self) {
-        debug!("Saving memtable...");
+        debug!("Save memtable: \t{:?}", self.io.file_path);
 
         futures::executor::block_on(async move {
             self.to_io(&self.io).await.unwrap();
@@ -292,7 +291,9 @@ mod test {
     }
 
     #[test]
-    fn decode_works() {
+    fn decode_works() -> Result<()> {
+        crate::utils::logger::init();
+
         let mut mut_map = MemStore::new();
 
         for i in 0..64 {
@@ -305,22 +306,25 @@ mod test {
         }
 
         let data = mut_map.iter().collect::<Vec<_>>();
-        let bytes = bincode::encode_to_vec(&data, BIN_CODE_CONF).unwrap();
-        print_hex_view(&bytes);
+        let bytes = bincode::encode_to_vec(&data, BIN_CODE_CONF)?;
 
-        let (mut count, mut pos) = bincode::decode_from_slice::<u64, BincodeConfig>(&bytes, BIN_CODE_CONF).unwrap();
+        print_hex_view(&bytes)?;
+
+        let (mut count, mut pos) =
+            bincode::decode_from_slice::<u64, BincodeConfig>(&bytes, BIN_CODE_CONF)?;
         while count > 0 {
             let slice = &bytes[pos..];
-            if let Ok((data_store, offset)) = bincode::decode_from_slice::<(u64, DataStore), BincodeConfig>
-                (slice, BIN_CODE_CONF) {
-                if let DataStore::Value(value) = data_store.1 {
-                    assert_eq!(value.as_ref(), &vec![data_store.0 as u8; 4]);
-                }
+            if let Ok((data_store, offset)) =
+                bincode::decode_from_slice::<KVStore, BincodeConfig>(slice, BIN_CODE_CONF)
+            {
+                assert_eq!(&data_store.1, mut_map.get(&data_store.0).unwrap());
                 pos += offset;
             } else {
                 break;
             }
             count -= 1;
         }
+
+        Ok(())
     }
 }

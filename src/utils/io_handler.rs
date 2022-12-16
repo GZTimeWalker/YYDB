@@ -11,7 +11,7 @@ use crate::utils::error::Result;
 
 #[derive(Debug)]
 pub struct IOHandler {
-    file_path: Arc<PathBuf>,
+    pub file_path: Arc<PathBuf>,
     file: Mutex<File>,
 }
 
@@ -26,7 +26,7 @@ impl IOHandler {
             .open(&path)
             .await?;
 
-        info!("Opening file: {:?}", path);
+        trace!("Opening file: {:?}", path);
 
         Ok(Self {
             file_path: Arc::new(path.clone()),
@@ -84,7 +84,7 @@ impl IOHandler {
 
 impl Drop for IOHandler {
     fn drop(&mut self) {
-        info!("Closing file: {:?}", self.file_path);
+        trace!("Closing file: {:?}", self.file_path);
 
         futures::executor::block_on(async move {
             let mut file = self.file.lock().await;
