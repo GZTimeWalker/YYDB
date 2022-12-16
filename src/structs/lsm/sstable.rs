@@ -1,6 +1,7 @@
 use std::fmt::{Debug, LowerHex};
 
 use async_trait::async_trait;
+use chrono::TimeZone;
 
 use crate::{
     structs::{kvstore::*, mem::MemStore},
@@ -63,13 +64,25 @@ impl SSTableKey {
     }
 
     /// get level of this SSTable
-    pub fn level(&self) -> u64 {
-        self.0 >> 60
+    pub fn level(&self) -> u32 {
+        (self.0 >> 60) as u32
     }
 
     /// get timestamp of this SSTable
     pub fn timestamp(&self) -> i64 {
         !(0x0F << 60) & !(self.0) as i64
+    }
+
+    pub fn valid(&self) -> bool {
+        let left = chrono::Utc
+            .with_ymd_and_hms(2000, 1, 1, 0, 1, 1)
+            .unwrap().timestamp_millis();
+        let right = chrono::Utc
+            .with_ymd_and_hms(3000, 1, 1, 0, 1, 1)
+            .unwrap().timestamp_millis();
+        let key_time = self.timestamp();
+
+        self.level() < 15 && key_time > left && key_time < right
     }
 }
 

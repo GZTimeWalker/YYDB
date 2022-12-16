@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::io::SeekFrom;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncSeekExt};
 
 use tokio::sync::RwLock;
 
@@ -29,7 +29,7 @@ impl MemTable {
 
         debug!("MemTable path: {:?}", path);
 
-        if let Ok(mem) = MemTable::from_io(io).await {
+        if let Ok(mem) = MemTable::from_io(&io).await {
             mem
         } else {
             Self {
@@ -90,14 +90,14 @@ impl Drop for MemTable {
         debug!("Saving memtable...");
 
         futures::executor::block_on(async move {
-            self.to_io().await.unwrap();
+            self.to_io(&self.io).await.unwrap();
         });
     }
 }
 
 #[async_trait]
 impl AsyncFromIO for MemTable {
-    async fn from_io(io: IOHandler) -> Result<Self> {
+    async fn from_io(io: &IOHandler) -> Result<Self> {
         if let Ok(true) = io.is_empty().await {
             return Err(DbError::EmptyFile);
         }
@@ -107,7 +107,7 @@ impl AsyncFromIO for MemTable {
         let magic_number = io.inner().await?.read_u32().await?;
 
         if magic_number != CACHE_MAGIC_NUMBER {
-            return Err(DbError::MissMagicNumber);
+            return Err(DbError::InvalidMagicNumber);
         }
 
         let crc32 = io.inner().await?.read_u32().await?;
@@ -122,20 +122,21 @@ impl AsyncFromIO for MemTable {
             return Err(DbError::MissChecksum);
         }
 
-        let config = bincode::config::standard();
-        let mut_map: MemStore = bincode::decode_from_slice(&bytes, config)?.0;
+        let mut_map: MemStore = bincode::decode_from_slice(&bytes, Self::CONF)?.0;
 
         Ok(Self {
             mut_map: RwLock::new(mut_map),
             lock_map: RwLock::new(BTreeMap::new()),
-            io,
+            io: io.clone().await?,
         })
     }
 }
 
+impl WithIOConfig for MemTable {}
+
 #[async_trait]
 impl AsyncToIO for MemTable {
-    async fn to_io(&self) -> Result<()> {
+    async fn to_io(&self, io: &IOHandler) -> Result<()> {
         let mut_map = self.mut_map.read().await;
         let lock_map = self.lock_map.read().await;
 
@@ -145,19 +146,19 @@ impl AsyncToIO for MemTable {
             cache_map.insert(*key, value.clone());
         }
 
-        let config = bincode::config::standard();
-
-        let bytes = bincode::encode_to_vec(cache_map, config)?;
+        let bytes = bincode::encode_to_vec(cache_map, Self::CONF)?;
 
         let mut hasher = Hasher::new();
         hasher.update(&bytes);
         let crc32 = hasher.finalize();
 
-        self.io.seek(SeekFrom::Start(0)).await?;
-        self.io.inner().await?.write_u32(CACHE_MAGIC_NUMBER).await?;
-        self.io.inner().await?.write_u32(crc32).await?;
-        self.io.write(&bytes).await?;
-        self.io.flush().await?;
+        let mut io = io.inner().await?;
+
+        io.seek(SeekFrom::Start(0)).await?;
+        io.write_u32(CACHE_MAGIC_NUMBER).await?;
+        io.write_u32(crc32).await?;
+        io.write(&bytes).await?;
+        io.flush().await?;
 
         Ok(())
     }
@@ -208,7 +209,7 @@ mod test {
                 DataStore::Value(Arc::new(vec![10, 11, 12]))
             );
 
-            mem.to_io().await?;
+            mem.to_io(&mem.io).await?;
         }
 
         {
@@ -241,7 +242,7 @@ mod test {
         }
 
         {
-            let mem = MemTable::from_io(IOHandler::new(&path.join(".cache")).await?).await?;
+            let mem = MemTable::from_io(&IOHandler::new(&path.join(".cache")).await?).await?;
 
             assert_eq!(mem.get(1).await, DataStore::Value(Arc::new(vec![1, 2, 3])));
             assert_eq!(mem.get(2).await, DataStore::Deleted);

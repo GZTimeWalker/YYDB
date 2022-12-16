@@ -32,7 +32,7 @@ impl Table {
     pub async fn open(table_name: String) -> Result<Table> {
         info!("Opening table: {}", table_name);
 
-        let table_name = table_name.as_str();
+        let table_name = &table_name;
         std::fs::create_dir_all(table_name)?;
 
         Ok(Table {

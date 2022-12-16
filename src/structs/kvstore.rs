@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use bincode::config::Configuration;
 
 use crate::utils::*;
 
@@ -26,14 +27,18 @@ pub trait SizedOnDisk {
     async fn size_on_disk(&self) -> Result<u64>;
 }
 
-#[async_trait]
-pub trait AsyncFromIO: Sized {
-    /// Create a new instance from an IOHandler
-    async fn from_io(io: IOHandler) -> Result<Self>;
+pub trait WithIOConfig {
+    const CONF: Configuration = bincode::config::standard();
 }
 
 #[async_trait]
-pub trait AsyncToIO {
+pub trait AsyncFromIO: Sized + WithIOConfig {
+    /// Create a new instance from an IOHandler
+    async fn from_io(io: &IOHandler) -> Result<Self>;
+}
+
+#[async_trait]
+pub trait AsyncToIO: WithIOConfig {
     /// Write the instance to an IOHandler
-    async fn to_io(&self) -> Result<()>;
+    async fn to_io(&self, io: &IOHandler) -> Result<()>;
 }

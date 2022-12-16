@@ -1,6 +1,6 @@
 use growable_bloom_filter::GrowableBloom;
 
-use super::sstable::SSTableKey;
+use super::{sstable::SSTableKey, bloom_size};
 
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct SSTableMeta {
@@ -13,12 +13,12 @@ pub struct SSTableMeta {
 }
 
 impl SSTableMeta {
-    pub fn new(key: SSTableKey, level: u32) -> Self {
+    pub fn new(key: SSTableKey, checksum: u32) -> Self {
         Self {
             key,
-            checksum: 0,
-            level,
-            bloom_filter: GrowableBloom::new(0.05, 64),
+            checksum,
+            level: key.level(),
+            bloom_filter: GrowableBloom::new(0.05, bloom_size(key.level())),
         }
     }
 }

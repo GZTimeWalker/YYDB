@@ -86,6 +86,10 @@ impl IOHandler {
         Ok(self.file_size().await? == 0)
     }
 
+    pub async fn base_dir(&self) -> PathBuf {
+        self.file_path.as_ref().parent().unwrap().to_path_buf()
+    }
+
     /// delete the file
     ///
     /// Warning: The writer and reader couldn't be used after this function is called
@@ -95,6 +99,10 @@ impl IOHandler {
 
         fs::remove_file(self.file_path.as_ref()).await?;
         Ok(())
+    }
+
+    pub async fn clone(&self) -> Result<Self> {
+        Self::new(self.file_path.as_ref()).await
     }
 }
 
