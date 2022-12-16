@@ -1,11 +1,13 @@
 #[macro_use]
 mod macros;
 
+pub mod bloom_filter;
 pub mod data_store;
 pub mod error;
 pub mod io_handler;
 pub mod logger;
 
+pub use bloom_filter::*;
 pub use data_store::*;
 pub use error::*;
 pub use io_handler::*;

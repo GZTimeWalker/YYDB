@@ -1,9 +1,8 @@
 use async_trait::async_trait;
 use crc32fast::Hasher;
-use std::io::SeekFrom;
 use std::{path::PathBuf, sync::Arc};
 use tokio::fs::{self, File, OpenOptions};
-use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::sync::{Mutex, MutexGuard};
 
 use crate::structs::kvstore::SizedOnDisk;
@@ -26,6 +25,8 @@ impl IOHandler {
             .read(true)
             .open(&path)
             .await?;
+
+        info!("Opening file: {:?}", path);
 
         Ok(Self {
             file_path: Arc::new(path.clone()),
@@ -53,31 +54,6 @@ impl IOHandler {
         Ok(hasher.finalize())
     }
 
-    pub async fn read(&self, buf: &mut [u8]) -> Result<usize> {
-        let len = self.file.lock().await.read(buf).await?;
-        Ok(len)
-    }
-
-    pub async fn read_to_end(&self, buf: &mut Vec<u8>) -> Result<()> {
-        self.file.lock().await.read_to_end(buf).await?;
-        Ok(())
-    }
-
-    pub async fn write(&self, buf: &[u8]) -> Result<()> {
-        self.file.lock().await.write_all(buf).await?;
-        Ok(())
-    }
-
-    pub async fn seek(&self, pos: SeekFrom) -> Result<()> {
-        self.file.lock().await.seek(pos).await?;
-        Ok(())
-    }
-
-    pub async fn flush(&self) -> Result<()> {
-        self.file.lock().await.flush().await?;
-        Ok(())
-    }
-
     pub async fn inner(&self) -> Result<MutexGuard<File>> {
         Ok(self.file.lock().await)
     }
@@ -103,6 +79,17 @@ impl IOHandler {
 
     pub async fn clone(&self) -> Result<Self> {
         Self::new(self.file_path.as_ref()).await
+    }
+}
+
+impl Drop for IOHandler {
+    fn drop(&mut self) {
+        info!("Closing file: {:?}", self.file_path);
+
+        futures::executor::block_on(async move {
+            let mut file = self.file.lock().await;
+            file.shutdown().await.unwrap();
+        });
     }
 }
 
@@ -135,6 +122,10 @@ impl IOHandlerFactory {
 
 #[cfg(test)]
 mod test {
+    use std::io::SeekFrom;
+
+    use tokio::io::AsyncSeekExt;
+
     use super::*;
 
     #[tokio::test]
@@ -148,18 +139,22 @@ mod test {
         let key = SSTableKey::new(0u64);
 
         let io_handler = factory.create(key).await?;
-        io_handler.write(b"hello world").await?;
 
-        io_handler.flush().await?;
+        {
+            let mut io = io_handler.inner().await?;
+            io.write(b"hello world").await?;
 
-        io_handler.seek(SeekFrom::Start(0)).await?;
+            io.flush().await?;
 
-        let mut buf = [0u8; 11];
-        io_handler.read(&mut buf).await?;
+            io.seek(SeekFrom::Start(0)).await?;
 
-        assert_eq!(b"hello world", &buf);
+            let mut buf = [0u8; 11];
+            io.read(&mut buf).await?;
 
-        io_handler.seek(SeekFrom::Start(0)).await?;
+            assert_eq!(b"hello world", &buf);
+
+            io.seek(SeekFrom::Start(0)).await?;
+        }
 
         let checksum = io_handler.checksum().await?;
         assert_eq!(checksum, 0xd4a1185);

@@ -1,7 +1,6 @@
-use std::{io::SeekFrom, path::PathBuf};
-
 use async_trait::async_trait;
 use avl::AvlTreeMap;
+use std::{io::SeekFrom, path::PathBuf};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use super::{
@@ -21,6 +20,7 @@ pub struct Manifest {
     table_id: TableId,
     row_size: Option<u32>,
     tables: AvlTreeMap<SSTableKey, SSTable>,
+    global_bloom_filter: BloomFilter,
 }
 
 impl Manifest {
@@ -33,16 +33,15 @@ impl Manifest {
         let io = IOHandler::new(&path).await.unwrap();
 
         if let Ok(manifest) = Manifest::from_io(&io).await {
-            debug!("manifest from io ok");
             manifest
         } else {
-            debug!("manifest from io error");
             Self {
                 io,
                 factory: IOHandlerFactory::new(&table_name),
                 table_id: TableId::new(table_name.to_str().unwrap()),
                 row_size: None,
                 tables: AvlTreeMap::new(),
+                global_bloom_filter: BloomFilter::new_global(),
             }
         }
     }
@@ -91,6 +90,10 @@ impl WithIOConfig for Manifest {}
 
 #[async_trait]
 impl AsyncToIO for Manifest {
+    /// write the mainfest's data to disk
+    ///
+    /// the order is `magic_number`, `table_id`,
+    /// `row_size`, `bloom_filter`, `tables`
     async fn to_io(&self, io: &IOHandler) -> Result<()> {
         if self.row_size.is_none() {
             return Err(DbError::UnknownRowSize);
@@ -102,6 +105,10 @@ impl AsyncToIO for Manifest {
         io.write_u32(META_MAGIC_NUMBER).await?;
         io.write_u64(self.table_id.0).await?;
         io.write_u32(self.row_size.unwrap()).await?;
+
+        let bytes = bincode::encode_to_vec(&self.global_bloom_filter, Self::CONF)?;
+        io.write_u32(bytes.len() as u32).await?;
+        io.write(&bytes).await?;
 
         for (key, table) in self.tables.iter() {
             io.write_u64(key.0).await?;
@@ -120,8 +127,6 @@ impl AsyncToIO for Manifest {
 #[async_trait]
 impl AsyncFromIO for Manifest {
     async fn from_io(io: &IOHandler) -> Result<Self> {
-        io.seek(SeekFrom::Start(0)).await?;
-
         let table_name = io.base_dir().await;
         let factory = IOHandlerFactory::new(&table_name);
 
@@ -135,6 +140,11 @@ impl AsyncFromIO for Manifest {
 
         let table_id = TableId(file_io.read_u64().await?);
         let row_size = file_io.read_u32().await?;
+
+        let filter_size = file_io.read_u32().await?;
+        let mut bytes = vec![0; filter_size as usize];
+        file_io.read_exact(&mut bytes).await?;
+        let global_bloom_filter: BloomFilter = bincode::decode_from_slice(&bytes, Self::CONF)?.0;
 
         let mut tables = AvlTreeMap::new();
 
@@ -158,10 +168,10 @@ impl AsyncFromIO for Manifest {
             row_size: Some(row_size),
             tables,
             factory,
+            global_bloom_filter,
         })
     }
 }
-
 
 impl Drop for Manifest {
     fn drop(&mut self) {

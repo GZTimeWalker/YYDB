@@ -1,15 +1,13 @@
-use growable_bloom_filter::GrowableBloom;
+use crate::utils::BloomFilter;
 
-use super::{sstable::SSTableKey, bloom_size};
+use super::sstable::SSTableKey;
 
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct SSTableMeta {
     pub key: SSTableKey,
     pub checksum: u32,
     pub level: u32,
-
-    #[bincode(with_serde)]
-    pub bloom_filter: GrowableBloom,
+    pub bloom_filter: BloomFilter,
 }
 
 impl SSTableMeta {
@@ -18,19 +16,7 @@ impl SSTableMeta {
             key,
             checksum,
             level: key.level(),
-            bloom_filter: GrowableBloom::new(0.05, bloom_size(key.level())),
-        }
-    }
-}
-
-impl Default for SSTableMeta {
-    fn default() -> Self {
-        Self {
-            key: SSTableKey::new(0u64),
-            checksum: 0,
-            level: 0,
-            // bloom filter's parameters may be different in different level
-            bloom_filter: GrowableBloom::new(0.05, 64),
+            bloom_filter: BloomFilter::new(key.level()),
         }
     }
 }
@@ -41,7 +27,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let mut meta = SSTableMeta::default();
+        let mut meta = SSTableMeta::new(SSTableKey::new(0u64), 0);
         meta.bloom_filter.insert(&[1, 2, 3]);
 
         let config = bincode::config::standard();
@@ -50,7 +36,7 @@ mod tests {
 
         assert!(bytes.len() > 0);
 
-        println!("Length for MetaData Test: {}", bytes.len());
+        debug!("Length for MetaData Test: {}", bytes.len());
 
         let decoded: SSTableMeta = bincode::decode_from_slice(&bytes, config).unwrap().0;
 

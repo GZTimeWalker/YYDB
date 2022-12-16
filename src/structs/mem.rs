@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 use std::io::SeekFrom;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::io::{AsyncReadExt, AsyncWriteExt, AsyncSeekExt};
+use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use tokio::sync::RwLock;
 
@@ -102,18 +102,20 @@ impl AsyncFromIO for MemTable {
             return Err(DbError::EmptyFile);
         }
 
-        io.seek(SeekFrom::Start(0)).await?;
+        let mut file_io = io.inner().await?;
 
-        let magic_number = io.inner().await?.read_u32().await?;
+        file_io.seek(SeekFrom::Start(0)).await?;
+
+        let magic_number = file_io.read_u32().await?;
 
         if magic_number != CACHE_MAGIC_NUMBER {
             return Err(DbError::InvalidMagicNumber);
         }
 
-        let crc32 = io.inner().await?.read_u32().await?;
+        let crc32 = file_io.read_u32().await?;
 
         let mut bytes = Vec::new();
-        io.read_to_end(&mut bytes).await?;
+        file_io.read_to_end(&mut bytes).await?;
 
         let mut hasher = Hasher::new();
         hasher.update(&bytes);
@@ -214,15 +216,16 @@ mod test {
 
         {
             let io = IOHandler::new(&path.join(".cache")).await?;
+            let mut file_io = io.inner().await?;
 
-            let magic_number = io.inner().await?.read_u32().await?;
+            let magic_number = file_io.read_u32().await?;
 
             assert_eq!(magic_number, CACHE_MAGIC_NUMBER);
 
-            let crc32 = io.inner().await?.read_u32().await?;
+            let crc32 = file_io.read_u32().await?;
 
             let mut bytes = Vec::new();
-            io.read_to_end(&mut bytes).await?;
+            file_io.read_to_end(&mut bytes).await?;
 
             let mut hasher = Hasher::new();
             hasher.update(&bytes);

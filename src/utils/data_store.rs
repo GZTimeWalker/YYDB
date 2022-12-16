@@ -45,7 +45,7 @@ mod tests {
 
         let bytes = bincode::encode_to_vec(&data, config).unwrap();
 
-        println!("Length for DataStore Test: {}", bytes.len());
+        debug!("Length for DataStore Test: {}", bytes.len());
 
         let decoded: Vec<DataStore> = bincode::decode_from_slice(&bytes, config).unwrap().0;
 

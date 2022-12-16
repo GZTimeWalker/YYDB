@@ -127,7 +127,7 @@ mod tests {
                     super::spawn(async move {
                         let delay = rand::thread_rng().gen_range(0..=500);
                         tokio::time::sleep(Duration::from_millis(delay)).await;
-                        println!("YYDB async task: {} @ {:>3}ms", i, delay);
+                        debug!("YYDB async task: {} @ {:>3}ms", i, delay);
                     })
                 })
                 .collect::<Vec<_>>();

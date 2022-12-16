@@ -37,7 +37,11 @@ impl SSTable {
 #[async_trait]
 impl AsyncKVStoreRead for SSTable {
     async fn get(&self, _key: u64) -> DataStore {
-        todo!()
+        if !self.meta.bloom_filter.contains(_key) {
+            return DataStore::NotFound;
+        }
+
+        DataStore::NotFound
     }
 
     async fn len(&self) -> usize {
@@ -76,10 +80,12 @@ impl SSTableKey {
     pub fn valid(&self) -> bool {
         let left = chrono::Utc
             .with_ymd_and_hms(2000, 1, 1, 0, 1, 1)
-            .unwrap().timestamp_millis();
+            .unwrap()
+            .timestamp_millis();
         let right = chrono::Utc
             .with_ymd_and_hms(3000, 1, 1, 0, 1, 1)
-            .unwrap().timestamp_millis();
+            .unwrap()
+            .timestamp_millis();
         let key_time = self.timestamp();
 
         self.level() < 15 && key_time > left && key_time < right
@@ -111,8 +117,10 @@ mod tests {
             keys.push(SSTableKey::new(i));
         }
         keys.sort();
-        for i in 0..keys.len() {
-            println!("{:?}", keys[i]);
+
+        for i in 0..3usize {
+            assert_eq!(keys[i * 2].level(), i as u32);
+            assert_eq!(keys[i * 2 + 1].level(), i as u32);
         }
     }
 }
