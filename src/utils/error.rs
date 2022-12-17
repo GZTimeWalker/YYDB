@@ -4,6 +4,7 @@ pub type Result<T> = std::result::Result<T, DbError>;
 pub enum DbError {
     KeyNotFound,
     EmptyFile,
+    InvalidData,
     MissChecksum,
     InvalidMagicNumber,
     InvalidSSTableKey,

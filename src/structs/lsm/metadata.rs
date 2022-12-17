@@ -5,16 +5,14 @@ use super::sstable::SSTableKey;
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct SSTableMeta {
     pub key: SSTableKey,
-    pub checksum: u32,
     pub level: u32,
     pub bloom_filter: BloomFilter,
 }
 
 impl SSTableMeta {
-    pub fn new(key: SSTableKey, checksum: u32) -> Self {
+    pub fn new(key: SSTableKey) -> Self {
         Self {
             key,
-            checksum,
             level: key.level(),
             bloom_filter: BloomFilter::new(key.level()),
         }
@@ -27,7 +25,7 @@ mod tests {
 
     #[test]
     fn it_works() {
-        let mut meta = SSTableMeta::new(SSTableKey::new(0u64), 0);
+        let mut meta = SSTableMeta::new(SSTableKey::new(0u64));
         meta.bloom_filter.insert(&[1, 2, 3]);
 
         let config = bincode::config::standard();

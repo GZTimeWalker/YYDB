@@ -1,3 +1,4 @@
+use async_compression::Level;
 use async_trait::async_trait;
 use avl::AvlTreeMap;
 use std::{collections::VecDeque, io::SeekFrom, path::PathBuf, sync::Arc};
@@ -5,11 +6,7 @@ use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
 use super::{
     kvstore::*,
-    lsm::{
-        metadata::SSTableMeta,
-        sstable::{SSTable, SSTableKey},
-        LsmTreeIterator,
-    },
+    lsm::*,
     META_MAGIC_NUMBER,
 };
 use crate::{structs::table::TableId, utils::*};
@@ -17,11 +14,11 @@ use crate::{structs::table::TableId, utils::*};
 #[derive(Debug)]
 pub struct Manifest {
     io: IOHandler,
-    factory: IOHandlerFactory,
-    table_id: TableId,
-    row_size: u32,
     tables: AvlTreeMap<SSTableKey, Arc<SSTable>>,
-    global_bloom_filter: BloomFilter,
+    pub factory: IOHandlerFactory,
+    pub table_id: TableId,
+    pub row_size: u32,
+    pub bloom_filter: BloomFilter,
 }
 
 impl Manifest {
@@ -40,7 +37,7 @@ impl Manifest {
                 table_id: TableId::new(table_name.to_str().unwrap()),
                 row_size: 0,
                 tables: AvlTreeMap::new(),
-                global_bloom_filter: BloomFilter::new_global(),
+                bloom_filter: BloomFilter::new_global(),
             })
         })
     }
@@ -60,19 +57,37 @@ impl Manifest {
 
         LsmTreeIterator::new(cache)
     }
+
+    pub fn add_table(&mut self, table: SSTable) {
+        self.tables.insert(table.meta().key, Arc::new(table));
+    }
 }
 
 #[async_trait]
 impl AsyncKvStoreRead for Manifest {
-    async fn get(&self, key: Key) -> DataStore {
+    async fn get(&self, key: Key) -> Result<DataStore> {
+        debug!("Try to get key [{:?}] from manifest", key);
+
         for table in self.tables.values() {
-            return match table.get(key).await {
-                DataStore::Value(block) => DataStore::Value(block),
-                DataStore::Deleted => DataStore::Deleted,
+            debug!(
+                "Try to get key [{:?}] from sstable @{:?}",
+                key,
+                table.meta().key
+            );
+
+            if !table.meta().bloom_filter.contains(key) {
+                debug!("Key not found in table {:?}: [{:?}]", key, table.meta().key);
+                continue;
+            }
+
+            return match table.get(key).await? {
+                DataStore::Value(block) => Ok(DataStore::Value(block)),
+                DataStore::Deleted => Ok(DataStore::Deleted),
                 DataStore::NotFound => continue,
             };
         }
-        DataStore::NotFound
+
+        Ok(DataStore::NotFound)
     }
 
     async fn len(&self) -> usize {
@@ -100,7 +115,7 @@ impl AsyncToIO for Manifest {
     /// write the manifest's data to disk
     ///
     /// the order is `magic_number`, `table_id`,
-    /// `row_size`, `bloom_filter`, `tables`
+    /// `row_size`, `global_add_bloom_filter`, `global_del_bloom_filter`, `tables`
     async fn to_io(&self, io: &IOHandler) -> Result<()> {
         let mut io = io.inner().await?;
         io.seek(SeekFrom::Start(0)).await?;
@@ -109,7 +124,14 @@ impl AsyncToIO for Manifest {
         io.write_u64(self.table_id.0).await?;
         io.write_u32(self.row_size).await?;
 
-        let bytes = bincode::encode_to_vec(&self.global_bloom_filter, BIN_CODE_CONF)?;
+        let bytes = bincode::encode_to_vec(&self.bloom_filter, BIN_CODE_CONF)?;
+
+        let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
+        writer.write_all(&bytes).await?;
+        writer.shutdown().await?;
+
+        let bytes = writer.into_inner();
+
         io.write_u32(bytes.len() as u32).await?;
         io.write_all(&bytes).await?;
 
@@ -147,7 +169,12 @@ impl AsyncFromIO for Manifest {
         let filter_size = file_io.read_u32().await?;
         let mut bytes = vec![0; filter_size as usize];
         file_io.read_exact(&mut bytes).await?;
-        let global_bloom_filter: BloomFilter = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0;
+
+        let mut reader = CompressionDecoder::new(bytes.as_slice());
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+
+        let bloom_filter: BloomFilter = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0;
 
         let mut tables = AvlTreeMap::new();
 
@@ -172,7 +199,7 @@ impl AsyncFromIO for Manifest {
             row_size,
             tables,
             factory,
-            global_bloom_filter,
+            bloom_filter,
         })
     }
 }
@@ -213,7 +240,7 @@ mod tests {
 
                 let rnd = rand::random::<u32>() % 3;
                 let key = SSTableKey::new(rnd);
-                let meta = SSTableMeta::new(key, rand::random::<u32>());
+                let meta = SSTableMeta::new(key);
 
                 manifest.tables.insert(
                     meta.key,

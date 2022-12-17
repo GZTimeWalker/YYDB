@@ -18,6 +18,9 @@ pub use error::*;
 pub use io_handler::*;
 pub use macros::*;
 
+pub type CompressionEncoder<T> = async_compression::tokio::write::DeflateEncoder<T>;
+pub type CompressionDecoder<T> = async_compression::tokio::bufread::DeflateDecoder<T>;
+
 pub type BincodeConfig = Configuration;
 pub const BIN_CODE_CONF: BincodeConfig = bincode::config::standard();
 

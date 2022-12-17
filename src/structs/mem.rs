@@ -1,3 +1,4 @@
+use async_compression::Level;
 use async_trait::async_trait;
 use crc32fast::Hasher;
 use std::collections::{BTreeMap, VecDeque};
@@ -11,6 +12,7 @@ use tokio::sync::RwLock;
 use crate::structs::CACHE_MAGIC_NUMBER;
 use crate::utils::*;
 
+use super::lsm::*;
 use super::manifest::Manifest;
 use super::{kvstore::*, MEM_BLOCK_NUM};
 
@@ -65,19 +67,47 @@ impl MemTable {
             self.swap().await;
 
             let locked_map = self.lock_map.clone();
+            let manifest = self.manifest.clone().expect("Manifest is not set");
+
             crate::core::runtime::spawn(async move {
-                Self::persist(&locked_map).await;
+                debug!("Persist MemTable...");
+                Self::persist(locked_map, manifest).await.unwrap();
             });
         }
     }
 
-    async fn persist(_locked_map: &Arc<RwLock<MemStore>>) {
-        // 1. create a new L0 SSTable
-        // 2. calculate the checksum of the SSTable
+    async fn persist(
+        locked_map: Arc<RwLock<MemStore>>,
+        manifest: Arc<RwLock<Manifest>>,
+    ) -> Result<()> {
+        // 1. calculate the checksum and bloom filter of the SSTable
+        // 2. create the L0 SSTable
         // 3. write the magic number to the SSTable
         // 4. write the checksum to the SSTable
         // 5. write the compressed data to the SSTable
         // 6. write the meta data to the manifest
+
+        let key = SSTableKey::new(0u64);
+        let mut meta = SSTableMeta::new(key);
+
+        let data: Vec<KvStore> = locked_map
+            .read()
+            .await
+            .iter()
+            .map(|(k, v)| {
+                meta.bloom_filter.insert(k);
+                (*k, v.clone())
+            })
+            .collect();
+
+        let gurad_manifest = manifest.read().await;
+        let sstable = SSTable::new(meta, &gurad_manifest.factory, gurad_manifest.row_size).await?;
+        sstable.archive(data).await?;
+        drop(gurad_manifest);
+
+        manifest.write().await.add_table(sstable);
+
+        Ok(())
     }
 
     pub async fn iter(&self) -> MemTableIterator {
@@ -94,16 +124,18 @@ impl MemTable {
 
 #[async_trait]
 impl AsyncKvStoreRead for MemTable {
-    async fn get(&self, key: Key) -> DataStore {
+    async fn get(&self, key: Key) -> Result<DataStore> {
         if let Some(value) = self.mut_map.read().await.get(&key) {
-            return value.clone();
+            return Ok(value.clone());
         }
 
         if let Some(value) = self.lock_map.read().await.get(&key) {
-            return value.clone();
+            return Ok(value.clone());
         }
 
-        DataStore::NotFound
+        debug!("Key not found in MemTable: [{:?}]", key);
+
+        Ok(DataStore::NotFound)
     }
 
     async fn len(&self) -> usize {
@@ -121,11 +153,17 @@ impl AsyncKvStoreWrite for MemTable {
             .write()
             .await
             .insert(key, DataStore::Value(Arc::new(value)));
+
+        if let Some(manifest) = &self.manifest {
+            manifest.write().await.bloom_filter.insert(key);
+        }
+
         self.do_persist().await;
     }
 
     async fn delete(&self, key: Key) {
         self.mut_map.write().await.insert(key, DataStore::Deleted);
+
         self.do_persist().await;
     }
 }
@@ -169,6 +207,10 @@ impl AsyncFromIO for MemTable {
             return Err(DbError::MissChecksum);
         }
 
+        let mut reader = CompressionDecoder::new(bytes.as_slice());
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+
         let mut_map: MemStore = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0;
 
         Ok(Self {
@@ -194,6 +236,12 @@ impl AsyncToIO for MemTable {
 
         let bytes = bincode::encode_to_vec(cache_map, BIN_CODE_CONF)?;
 
+        let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
+        writer.write_all(&bytes).await?;
+        writer.shutdown().await?;
+
+        let bytes = writer.into_inner();
+
         let mut hasher = Hasher::new();
         hasher.update(&bytes);
         let crc32 = hasher.finalize();
@@ -213,12 +261,11 @@ impl AsyncToIO for MemTable {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::structs::CACHE_MAGIC_NUMBER;
     use std::path::PathBuf;
-    use tokio::io::AsyncReadExt;
-
     #[tokio::test]
     async fn it_works() -> Result<()> {
+        crate::utils::logger::init();
+
         let test_dir = "helper/memtable_test";
 
         std::fs::remove_dir_all(test_dir).ok();
@@ -233,25 +280,25 @@ mod test {
             mem.set(2, vec![4, 5, 6]).await;
             mem.set(3, vec![7, 8, 9]).await;
 
-            assert_eq!(mem.get(1).await, DataStore::Value(Arc::new(vec![1, 2, 3])));
-            assert_eq!(mem.get(2).await, DataStore::Value(Arc::new(vec![4, 5, 6])));
-            assert_eq!(mem.get(3).await, DataStore::Value(Arc::new(vec![7, 8, 9])));
+            assert_eq!(mem.get(1).await?, DataStore::Value(Arc::new(vec![1, 2, 3])));
+            assert_eq!(mem.get(2).await?, DataStore::Value(Arc::new(vec![4, 5, 6])));
+            assert_eq!(mem.get(3).await?, DataStore::Value(Arc::new(vec![7, 8, 9])));
 
             mem.delete(2).await;
 
-            assert_eq!(mem.get(2).await, DataStore::Deleted);
+            assert_eq!(mem.get(2).await?, DataStore::Deleted);
 
             mem.swap().await;
 
-            assert_eq!(mem.get(1).await, DataStore::Value(Arc::new(vec![1, 2, 3])));
-            assert_eq!(mem.get(2).await, DataStore::Deleted);
-            assert_eq!(mem.get(3).await, DataStore::Value(Arc::new(vec![7, 8, 9])));
-            assert_eq!(mem.get(4).await, DataStore::NotFound);
+            assert_eq!(mem.get(1).await?, DataStore::Value(Arc::new(vec![1, 2, 3])));
+            assert_eq!(mem.get(2).await?, DataStore::Deleted);
+            assert_eq!(mem.get(3).await?, DataStore::Value(Arc::new(vec![7, 8, 9])));
+            assert_eq!(mem.get(4).await?, DataStore::NotFound);
 
             mem.set(4, vec![10, 11, 12]).await;
 
             assert_eq!(
-                mem.get(4).await,
+                mem.get(4).await?,
                 DataStore::Value(Arc::new(vec![10, 11, 12]))
             );
 
@@ -259,43 +306,13 @@ mod test {
         }
 
         {
-            let io = IOHandler::new(&path.join(".cache")).await?;
-            let mut file_io = io.inner().await?;
-
-            let magic_number = file_io.read_u32().await?;
-
-            assert_eq!(magic_number, CACHE_MAGIC_NUMBER);
-
-            let crc32 = file_io.read_u32().await?;
-
-            let mut bytes = Vec::new();
-            file_io.read_to_end(&mut bytes).await?;
-
-            let mut hasher = Hasher::new();
-            hasher.update(&bytes);
-
-            assert_eq!(hasher.finalize(), crc32);
-
-            let config = bincode::config::standard();
-            let mut_map: MemStore = bincode::decode_from_slice(&bytes, config)?.0;
-
-            assert_eq!(mut_map.len(), 4);
-
-            assert_eq!(
-                mut_map.get(&1),
-                Some(&DataStore::Value(Arc::new(vec![1, 2, 3])))
-            );
-            assert_eq!(mut_map.get(&2), Some(&DataStore::Deleted));
-        }
-
-        {
             let mem = MemTable::from_io(&IOHandler::new(&path.join(".cache")).await?).await?;
 
-            assert_eq!(mem.get(1).await, DataStore::Value(Arc::new(vec![1, 2, 3])));
-            assert_eq!(mem.get(2).await, DataStore::Deleted);
-            assert_eq!(mem.get(3).await, DataStore::Value(Arc::new(vec![7, 8, 9])));
+            assert_eq!(mem.get(1).await?, DataStore::Value(Arc::new(vec![1, 2, 3])));
+            assert_eq!(mem.get(2).await?, DataStore::Deleted);
+            assert_eq!(mem.get(3).await?, DataStore::Value(Arc::new(vec![7, 8, 9])));
             assert_eq!(
-                mem.get(4).await,
+                mem.get(4).await?,
                 DataStore::Value(Arc::new(vec![10, 11, 12]))
             );
         }
@@ -325,6 +342,7 @@ mod test {
 
         let (mut count, mut pos) =
             bincode::decode_from_slice::<u64, BincodeConfig>(&bytes, BIN_CODE_CONF)?;
+
         while count > 0 {
             let slice = &bytes[pos..];
             if let Ok((data_store, offset)) =

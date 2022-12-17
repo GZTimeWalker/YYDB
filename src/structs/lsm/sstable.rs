@@ -4,9 +4,10 @@ use std::{
     sync::Arc,
 };
 
+use async_compression::Level;
 use async_trait::async_trait;
 use chrono::TimeZone;
-use tokio::{fs, sync::Mutex};
+use tokio::{fs, io::AsyncWriteExt, sync::Mutex};
 
 use crate::{structs::*, utils::*};
 
@@ -34,18 +35,54 @@ impl SSTable {
         &self.meta
     }
 
-    pub async fn archive(&self, _mem: &MemStore) {
-        assert_eq!(self.meta.level, 0);
+    /// archive data to disk
+    ///
+    /// # Note
+    /// should only be called in L0 level
+    pub async fn archive(&self, data: Vec<KvStore>) -> Result<()> {
+        let bytes = bincode::encode_to_vec(data, BIN_CODE_CONF)?;
+        let (_, len_offset): (u64, usize) = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?;
+
+        let bytes = &bytes[len_offset..];
+
+        let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
+        writer.write_all(bytes).await?;
+        writer.shutdown().await?;
+
+        let bytes = writer.into_inner();
+
+        let mut hasher = crc32fast::Hasher::new();
+        hasher.update(&bytes);
+        let checksum = hasher.finalize();
+
+        let io = self.iter.lock().await.clone_io().await?;
+        let mut file_io = io.inner().await?;
+
+        file_io.write_u32(SSTABLE_MAGIC_NUMBER).await?;
+        file_io.write_u32(checksum).await?;
+        file_io.write_all(&bytes).await?;
+
+        drop(file_io);
+
+        self.iter.lock().await.recreate().await?;
+
+        Ok(())
     }
 }
 
 #[async_trait]
 impl AsyncKvStoreRead for SSTable {
-    async fn get(&self, _key: Key) -> DataStore {
-        if !self.meta.bloom_filter.contains(_key) {
-            return DataStore::NotFound;
+    async fn get(&self, key: Key) -> Result<DataStore> {
+        let mut iter = self.iter.lock().await;
+        iter.init_iter().await.unwrap();
+
+        while let Some(kvstore) = iter.next().await? {
+            if kvstore.0 == key {
+                return Ok(kvstore.1);
+            }
         }
-        todo!();
+
+        Ok(DataStore::NotFound)
     }
 
     async fn len(&self) -> usize {
@@ -66,7 +103,7 @@ pub struct SSTableKey(pub u64);
 impl SSTableKey {
     pub fn new(level: impl Into<u64>) -> Self {
         let level: u64 = level.into();
-        let current = chrono::Utc::now().timestamp_millis();
+        let current = chrono::Utc::now().timestamp_micros();
         Self((level << 60) + (!(0x0F << 60) & !(current as u64)))
     }
 
@@ -84,11 +121,11 @@ impl SSTableKey {
         let left = chrono::Utc
             .with_ymd_and_hms(2000, 1, 1, 0, 1, 1)
             .unwrap()
-            .timestamp_millis();
+            .timestamp_micros();
         let right = chrono::Utc
             .with_ymd_and_hms(3000, 1, 1, 0, 1, 1)
             .unwrap()
-            .timestamp_millis();
+            .timestamp_micros();
         let key_time = self.timestamp();
 
         self.level() < 15 && key_time > left && key_time < right

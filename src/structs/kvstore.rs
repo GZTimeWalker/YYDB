@@ -6,7 +6,7 @@ use crate::utils::*;
 #[async_trait]
 pub trait AsyncKvStoreRead: Send + 'static + Sized {
     /// Get the value specified by the key
-    async fn get(&self, key: Key) -> DataStore;
+    async fn get(&self, key: Key) -> Result<DataStore>;
 
     /// Get the number of keys in the store
     async fn len(&self) -> usize;
@@ -21,8 +21,8 @@ pub trait AsyncKvStoreWrite: AsyncKvStoreRead {
     async fn delete(&self, key: Key);
 }
 
-pub trait AsyncKvIterator {
-    type NextFuture<'a>: Future<Output = Result<(Key, DataInner)>>
+pub trait AsyncIterator<T> {
+    type NextFuture<'a>: Future<Output = Result<Option<T>>>
     where
         Self: 'a;
 

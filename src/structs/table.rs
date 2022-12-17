@@ -103,12 +103,20 @@ impl Drop for Table {
 
 #[async_trait]
 impl AsyncKvStoreRead for Table {
-    async fn get(&self, key: Key) -> DataStore {
-        // TODO: do a global bloom filter check
+    async fn get(&self, key: Key) -> Result<DataStore> {
+        let manifest = self.manifest.read().await;
 
-        match self.memtable.get(key).await {
-            DataStore::Value(value) => return DataStore::Value(value),
-            DataStore::Deleted => return DataStore::Deleted,
+        if !manifest.bloom_filter.contains(key) {
+            return Ok(DataStore::NotFound);
+        }
+
+        debug!("Get key in table {:x}: [{:?}]", self.id, key);
+
+        drop(manifest); // release lock
+
+        match self.memtable.get(key).await? {
+            DataStore::Value(value) => return Ok(DataStore::Value(value)),
+            DataStore::Deleted => return Ok(DataStore::Deleted),
             DataStore::NotFound => (),
         }
 
@@ -151,6 +159,7 @@ mod tests {
 
     #[tokio::test]
     async fn it_works() -> Result<()> {
+        crate::utils::logger::init();
         let test_dir = "helper/table_test";
 
         std::fs::remove_dir_all(test_dir).ok();
@@ -161,22 +170,24 @@ mod tests {
         assert_eq!(table.name(), test_dir);
         assert_eq!(table.id(), TableId::new(test_dir));
 
-        let key = 1;
-        let value = vec![1, 3, 5, 7];
+        const TEST_SIZE: u64 = 150;
 
-        table.set(key, value.clone()).await;
-
-        if let DataStore::Value(v) = table.get(key).await {
-            assert_eq!(v.as_ref(), &value);
-        } else {
-            panic!("Value not found");
+        for i in 0..TEST_SIZE {
+            table.set(i, vec![i as u8 + 40; 32]).await;
         }
 
-        table.delete(key).await;
+        for i in (3..TEST_SIZE).step_by(23) {
+            let expected_value = vec![i as u8 + 40; 32];
+            if let DataStore::Value(v) = table.get(i).await? {
+                assert_eq!(v.as_ref(), &expected_value);
+            } else {
+                panic!("Value not found");
+            }
+        }
 
-        assert_eq!(table.get(key).await, DataStore::Deleted);
-
-        assert_eq!(table.get(2).await, DataStore::NotFound);
+        table.delete(43).await;
+        assert_eq!(table.get(43).await?, DataStore::Deleted);
+        assert_eq!(table.get(512).await?, DataStore::NotFound);
 
         Ok(())
     }
