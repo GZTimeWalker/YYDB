@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use super::kvstore::*;
+use super::lsm::LsmTreeIterator;
 use super::manifest::Manifest;
 use super::mem::MemTable;
+use super::{kvstore::*, MemTableIterator};
 use crate::utils::*;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::{Formatter, LowerHex};
@@ -32,7 +33,9 @@ pub struct Table {
     id: TableId,
     name: String,
     memtable: MemTable,
+    memtable_iter: RwLock<Option<MemTableIterator>>,
     manifest: Arc<RwLock<Manifest>>,
+    lsm_iter: RwLock<Option<LsmTreeIterator>>,
 }
 
 impl Table {
@@ -43,13 +46,15 @@ impl Table {
         let table_name = &table_name;
         std::fs::create_dir_all(table_name)?;
 
-        let manifest = Arc::new(RwLock::new(Manifest::new(table_name).await));
+        let manifest = Arc::new(RwLock::new(Manifest::new(table_name).await?));
 
         Ok(Table {
             id: table_id,
             name: table_name.to_string(),
-            memtable: MemTable::new(table_name, Some(manifest.clone())).await,
+            memtable: MemTable::new(table_name, Some(manifest.clone())).await?,
+            memtable_iter: RwLock::new(None),
             manifest,
+            lsm_iter: RwLock::new(None),
         })
     }
 
@@ -59,6 +64,34 @@ impl Table {
 
     pub fn name(&self) -> &str {
         &self.name
+    }
+
+    pub async fn init_iter(&self) {
+        self.memtable_iter
+            .write()
+            .await
+            .replace(self.memtable.iter().await);
+        self.lsm_iter
+            .write()
+            .await
+            .replace(self.manifest.read().await.iter());
+    }
+
+    pub async fn end_iter(&self) {
+        self.memtable_iter.write().await.take();
+        self.lsm_iter.write().await.take();
+    }
+
+    pub async fn next(&self) -> Option<KvStore> {
+        if let Some(iter) = self.memtable_iter.write().await.as_mut() {
+            if let Some(kv) = iter.next() {
+                return Some(kv);
+            };
+        };
+
+        // iter sstables from manifest
+
+        None
     }
 }
 
@@ -71,6 +104,8 @@ impl Drop for Table {
 #[async_trait]
 impl AsyncKvStoreRead for Table {
     async fn get(&self, key: Key) -> DataStore {
+        // TODO: do a global bloom filter check
+
         match self.memtable.get(key).await {
             DataStore::Value(value) => return DataStore::Value(value),
             DataStore::Deleted => return DataStore::Deleted,

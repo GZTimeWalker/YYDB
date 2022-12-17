@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use crc32fast::Hasher;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, VecDeque};
 use std::io::SeekFrom;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -15,6 +15,7 @@ use super::manifest::Manifest;
 use super::{kvstore::*, MEM_BLOCK_NUM};
 
 pub type MemStore = BTreeMap<Key, DataStore>;
+pub type MemTableIterator = DequeIterator<KvStore>;
 
 #[derive(Debug)]
 pub struct MemTable {
@@ -28,23 +29,27 @@ impl MemTable {
     pub async fn new(
         table_name: impl Into<PathBuf>,
         manifest: Option<Arc<RwLock<Manifest>>>,
-    ) -> Self {
+    ) -> Result<Self> {
         let path: PathBuf = table_name.into().join(".cache");
-        let io = IOHandler::new(&path).await.unwrap();
+        let io = IOHandler::new(&path).await?;
 
         debug!("Load MemTable       : {:?}", path);
 
-        if let Ok(mut mem) = MemTable::from_io(&io).await {
-            mem.manifest = manifest;
-            mem
-        } else {
-            Self {
-                manifest,
-                mut_map: Arc::new(RwLock::new(BTreeMap::new())),
-                lock_map: Arc::new(RwLock::new(BTreeMap::new())),
-                io: IOHandler::new(&path).await.unwrap(),
-            }
-        }
+        MemTable::from_io(&io)
+            .await
+            .or_else(|_| {
+                debug!("Create MemTable     : {:?}", path);
+                Ok(Self {
+                    manifest: None,
+                    mut_map: Arc::new(RwLock::new(BTreeMap::new())),
+                    lock_map: Arc::new(RwLock::new(BTreeMap::new())),
+                    io,
+                })
+            })
+            .map(|mut mem_table| {
+                mem_table.manifest = manifest;
+                mem_table
+            })
     }
 
     pub async fn swap(&self) {
@@ -72,10 +77,18 @@ impl MemTable {
         // 3. write the magic number to the SSTable
         // 4. write the checksum to the SSTable
         // 5. write the compressed data to the SSTable
+        // 6. write the meta data to the manifest
+    }
 
-        // let data = locked_map.write().await.iter().collect::<Vec<_>>();
+    pub async fn iter(&self) -> MemTableIterator {
+        let mut_map = self.mut_map.read().await;
+        let lock_map = self.lock_map.read().await;
 
-        // let bytes = bincode::encode_to_vec(&data, BIN_CODE_CONF).unwrap();
+        let mut cache = VecDeque::with_capacity(mut_map.len() + lock_map.len());
+        cache.extend(mut_map.iter().map(|(k, v)| (*k, v.clone())));
+        cache.extend(lock_map.iter().map(|(k, v)| (*k, v.clone())));
+
+        MemTableIterator::new(cache)
     }
 }
 
@@ -190,7 +203,7 @@ impl AsyncToIO for MemTable {
         io.seek(SeekFrom::Start(0)).await?;
         io.write_u32(CACHE_MAGIC_NUMBER).await?;
         io.write_u32(crc32).await?;
-        io.write(&bytes).await?;
+        io.write_all(&bytes).await?;
         io.flush().await?;
 
         Ok(())
@@ -214,7 +227,7 @@ mod test {
         let path = PathBuf::from(test_dir);
 
         {
-            let mem = MemTable::new(path.clone(), None).await;
+            let mem = MemTable::new(path.clone(), None).await?;
 
             mem.set(1, vec![1, 2, 3]).await;
             mem.set(2, vec![4, 5, 6]).await;
@@ -315,7 +328,7 @@ mod test {
         while count > 0 {
             let slice = &bytes[pos..];
             if let Ok((data_store, offset)) =
-                bincode::decode_from_slice::<KVStore, BincodeConfig>(slice, BIN_CODE_CONF)
+                bincode::decode_from_slice::<KvStore, BincodeConfig>(slice, BIN_CODE_CONF)
             {
                 assert_eq!(&data_store.1, mut_map.get(&data_store.0).unwrap());
                 pos += offset;

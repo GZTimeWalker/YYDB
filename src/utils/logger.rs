@@ -6,7 +6,7 @@ lazy_static! {
         match profile {
             Ok(_) => Logger {
                 output: |_, message| {
-                    println!("{}", message);
+                    println!("{message}");
                 },
             },
             _ => Logger {

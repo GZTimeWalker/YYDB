@@ -20,14 +20,14 @@ pub struct SSTable {
 }
 
 impl SSTable {
-    pub async fn new(meta: SSTableMeta, factory: &IOHandlerFactory, row_size: u32) -> Self {
+    pub async fn new(meta: SSTableMeta, factory: &IOHandlerFactory, row_size: u32) -> Result<Self> {
         let key = meta.key;
-        let io = factory.create(key).await.unwrap();
-        Self {
+        let io = factory.create(key).await?;
+        Ok(Self {
             meta,
             file_name: io.file_path.clone(),
-            iter: Mutex::new(SSTableIter::new(io, row_size)),
-        }
+            iter: Mutex::new(SSTableIter::new(io, row_size).await?),
+        })
     }
 
     pub fn meta(&self) -> &SSTableMeta {

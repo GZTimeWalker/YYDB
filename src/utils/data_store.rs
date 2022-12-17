@@ -3,7 +3,7 @@ use std::sync::Arc;
 use super::*;
 
 pub type Key = u64;
-pub type KVStore = (Key, DataStore);
+pub type KvStore = (Key, DataStore);
 pub type DataInner = Vec<u8>;
 pub type Data = Arc<DataInner>;
 
@@ -44,13 +44,12 @@ mod tests {
             DataStore::Deleted,
             DataStore::NotFound,
         ];
-        let config = bincode::config::standard();
 
-        let bytes = bincode::encode_to_vec(&data, config).unwrap();
+        let bytes = bincode::encode_to_vec(&data, BIN_CODE_CONF).unwrap();
 
         debug!("Length for DataStore Test: {}", bytes.len());
 
-        let decoded: Vec<DataStore> = bincode::decode_from_slice(&bytes, config).unwrap().0;
+        let decoded: Vec<DataStore> = bincode::decode_from_slice(&bytes, BIN_CODE_CONF).unwrap().0;
 
         assert!(data == decoded);
     }

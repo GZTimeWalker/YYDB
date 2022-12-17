@@ -3,6 +3,7 @@ mod macros;
 
 pub mod bloom_filter;
 pub mod data_store;
+pub mod deque_iter;
 pub mod error;
 pub mod io_handler;
 pub mod logger;
@@ -12,6 +13,7 @@ use std::fmt::Write;
 
 pub use bloom_filter::*;
 pub use data_store::*;
+pub use deque_iter::*;
 pub use error::*;
 pub use io_handler::*;
 pub use macros::*;
@@ -25,7 +27,7 @@ const HEX_VIEW_COL_WIDTH: usize = 8;
 pub fn print_hex_view(buffer: &[u8]) -> Result<()> {
     let mut buf = String::new();
     for i in (0..buffer.len()).step_by(HEX_VIEW_WIDTH) {
-        write!(&mut buf, "| {:08x} | ", i)?;
+        write!(&mut buf, "| {i:08x} | ")?;
         for j in 0..HEX_VIEW_WIDTH {
             if i + j < buffer.len() {
                 write!(&mut buf, "{:02x}", buffer[i + j])?;
