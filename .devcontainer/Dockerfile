@@ -16,8 +16,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
 
 RUN set -eux; \
     url="https://sh.rustup.rs"; \
-    curl "$url" | sh -s -- -y --no-modify-path --profile minimal --default-toolchain nightly \
-    rm rustup-init; \
+    curl "$url" | sh -s -- -y --no-modify-path --profile minimal --default-toolchain nightly; \
     chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
     rustup component add rustfmt clippy; \
     rustup --version; \
