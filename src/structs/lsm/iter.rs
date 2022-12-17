@@ -17,7 +17,7 @@ pub struct SSTableIter {
     io: IOHandler,
     buf: VecDeque<u8>,
     checksum: Option<u32>,
-    reader: Option<CompressionDecoder<BufReader<File>>>
+    reader: Option<CompressionDecoder<BufReader<File>>>,
 }
 
 impl SSTableIter {
@@ -54,7 +54,7 @@ impl SSTableIter {
         let mut len_buffer = [0u8; 8];
         file_io.read_exact(&mut len_buffer).await?;
 
-        debug!("Recreated SSTableIter: {:?}", self.io.file_path);
+        debug!("Recreated Iter      : {:?}", self.io.file_path);
         Ok(())
     }
 
@@ -66,7 +66,8 @@ impl SSTableIter {
 
         let mut file = File::open(self.io.file_path.as_ref()).await?;
         file.seek(SeekFrom::Start(8)).await?;
-        self.reader.replace(CompressionDecoder::new(BufReader::new(file)));
+        self.reader
+            .replace(CompressionDecoder::new(BufReader::new(file)));
 
         Ok(())
     }
@@ -83,11 +84,6 @@ impl AsyncIterator<KvStore> for SSTableIter {
         async move {
             let reader = self.reader.as_mut().unwrap();
 
-            trace!(
-                "Reading next data from SSTableIter: {:?}",
-                self.io.file_path
-            );
-
             if self.buf.len() < self.buf.capacity() {
                 let mut buf = vec![0u8; self.buf.capacity() - self.buf.len()];
                 if let Ok(len) = reader.read_exact(&mut buf).await {
@@ -99,22 +95,18 @@ impl AsyncIterator<KvStore> for SSTableIter {
                 }
             }
 
-            if let Ok((data_store, offset)) = bincode::decode_from_slice::<KvStore, BincodeConfig>(
+            let (data_store, offset) = bincode::decode_from_slice::<KvStore, BincodeConfig>(
                 self.buf.make_contiguous(),
                 BIN_CODE_CONF,
-            ) {
-                self.buf.drain(..offset);
+            )?;
+            self.buf.drain(..offset);
 
-                debug!("Yielded data from SSTableIter: {:?}", data_store.0);
-
-                if let DataStore::Value(value) = data_store.1.clone() {
-                    print_hex_view(value.as_slice())?;
-                }
-
-                Ok(Some(data_store))
-            } else {
-                Err(DbError::InvalidData)
+            #[cfg(test)]
+            if let DataStore::Value(value) = &data_store.1 {
+                trace!("SSTableIter: {}", hex_view(&value.as_ref())?);
             }
+
+            Ok(Some(data_store))
         }
     }
 }
@@ -134,7 +126,9 @@ mod test {
             let mut writer = CompressionEncoder::new(file);
 
             for i in 0..10000u32 {
-                writer.write_all(vec![(i % 256) as u8; 128].as_slice()).await?;
+                writer
+                    .write_all(vec![(i % 256) as u8; 128].as_slice())
+                    .await?;
             }
             writer.shutdown().await?;
 

@@ -27,7 +27,7 @@ pub const BIN_CODE_CONF: BincodeConfig = bincode::config::standard();
 const HEX_VIEW_WIDTH: usize = 32;
 const HEX_VIEW_COL_WIDTH: usize = 8;
 
-pub fn print_hex_view(buffer: &[u8]) -> Result<()> {
+pub fn hex_view(buffer: &[u8]) -> Result<String> {
     let mut buf = String::new();
     for i in (0..buffer.len()).step_by(HEX_VIEW_WIDTH) {
         write!(&mut buf, "| {i:08x} | ")?;
@@ -56,6 +56,11 @@ pub fn print_hex_view(buffer: &[u8]) -> Result<()> {
         writeln!(&mut buf)?;
     }
 
-    println!("Hex view for buffer ({} bytes):\n\n{}", buffer.len(), buf);
+    Ok(format!("Hex view for buffer ({} bytes):\n\n{}", buffer.len(), buf))
+}
+
+pub fn print_hex_view(buffer: &[u8]) -> Result<()> {
+    println!("{}", hex_view(buffer)?);
+    
     Ok(())
 }

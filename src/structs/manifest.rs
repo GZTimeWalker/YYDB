@@ -66,17 +66,17 @@ impl Manifest {
 #[async_trait]
 impl AsyncKvStoreRead for Manifest {
     async fn get(&self, key: Key) -> Result<DataStore> {
-        debug!("Try to get key [{:?}] from manifest", key);
+        trace!("Try to get key [{:?}] from manifest", key);
 
         for table in self.tables.values() {
-            debug!(
+            trace!(
                 "Try to get key [{:?}] from sstable @{:?}",
                 key,
                 table.meta().key
             );
 
             if !table.meta().bloom_filter.contains(key) {
-                debug!("Key not found in table {:?}: [{:?}]", key, table.meta().key);
+                trace!("Key not found in table {:?}: [{:?}]", table.meta().key, key);
                 continue;
             }
 

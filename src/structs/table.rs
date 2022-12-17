@@ -89,9 +89,7 @@ impl Table {
             };
         };
 
-        // iter sstables from manifest
-
-        None
+        todo!();
     }
 }
 
@@ -110,7 +108,7 @@ impl AsyncKvStoreRead for Table {
             return Ok(DataStore::NotFound);
         }
 
-        debug!("Get key in table {:x}: [{:?}]", self.id, key);
+        trace!("Try Get key in table {:x}: [{:?}]", self.id, key);
 
         drop(manifest); // release lock
 
@@ -118,11 +116,14 @@ impl AsyncKvStoreRead for Table {
             DataStore::Value(value) => return Ok(DataStore::Value(value)),
             DataStore::Deleted => return Ok(DataStore::Deleted),
             DataStore::NotFound => (),
-        }
+        };
 
         let manifest = self.manifest.read().await;
 
-        manifest.get(key).await
+        let ret = manifest.get(key).await?;
+        trace!("Get value: [{}] -> [{}]", key, ret);
+
+        Ok(ret)
     }
 
     async fn len(&self) -> usize {
@@ -157,8 +158,12 @@ mod tests {
     use super::*;
     use crate::utils::error::Result;
 
-    #[tokio::test]
-    async fn it_works() -> Result<()> {
+    #[test]
+    fn it_works() -> Result<()> {
+        crate::core::runtime::block_on(it_works_async())
+    }
+
+    async fn it_works_async() -> Result<()> {
         crate::utils::logger::init();
         let test_dir = "helper/table_test";
 
@@ -170,14 +175,15 @@ mod tests {
         assert_eq!(table.name(), test_dir);
         assert_eq!(table.id(), TableId::new(test_dir));
 
-        const TEST_SIZE: u64 = 150;
+        const TEST_SIZE: u64 = 500;
 
         for i in 0..TEST_SIZE {
-            table.set(i, vec![i as u8 + 40; 32]).await;
+            table.set(i, vec![(i % 57 + 65) as u8; 32]).await;
+            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
         }
 
-        for i in (3..TEST_SIZE).step_by(23) {
-            let expected_value = vec![i as u8 + 40; 32];
+        for i in (5..TEST_SIZE).step_by(23) {
+            let expected_value = vec![(i % 57 + 65) as u8; 32];
             if let DataStore::Value(v) = table.get(i).await? {
                 assert_eq!(v.as_ref(), &expected_value);
             } else {

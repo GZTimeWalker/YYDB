@@ -84,7 +84,7 @@ impl IOHandler {
 
 impl Drop for IOHandler {
     fn drop(&mut self) {
-        trace!("Closing file: {:?}", self.file_path);
+        trace!("Closing file        : {:?}", self.file_path);
 
         futures::executor::block_on(async move {
             let mut file = self.file.lock().await;

@@ -11,4 +11,4 @@ pub const META_MAGIC_NUMBER: u32 = u32::from_be_bytes(*b"YYMT");
 pub const CACHE_MAGIC_NUMBER: u32 = u32::from_be_bytes(*b"YYCA");
 pub const SSTABLE_MAGIC_NUMBER: u32 = u32::from_be_bytes(*b"YYST");
 
-pub const MEM_BLOCK_NUM: usize = 0x40;
+pub const MEM_BLOCK_NUM: usize = 0x80;

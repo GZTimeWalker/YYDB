@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, fmt::Display};
 
 use super::*;
 
@@ -29,6 +29,16 @@ impl From<DataStore> for Result<Option<Data>> {
             DataStore::Value(value) => Ok(Some(value)),
             DataStore::Deleted => Ok(None),
             DataStore::NotFound => Err(DbError::KeyNotFound),
+        }
+    }
+}
+
+impl Display for DataStore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DataStore::Value(value) => write!(f, "Value({})", value.len()),
+            DataStore::Deleted => write!(f, "Deleted"),
+            DataStore::NotFound => write!(f, "NotFound"),
         }
     }
 }

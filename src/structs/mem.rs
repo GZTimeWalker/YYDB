@@ -70,7 +70,6 @@ impl MemTable {
             let manifest = self.manifest.clone().expect("Manifest is not set");
 
             crate::core::runtime::spawn(async move {
-                debug!("Persist MemTable...");
                 Self::persist(locked_map, manifest).await.unwrap();
             });
         }
@@ -133,7 +132,7 @@ impl AsyncKvStoreRead for MemTable {
             return Ok(value.clone());
         }
 
-        debug!("Key not found in MemTable: [{:?}]", key);
+        trace!("Key not found in MemTable: [{:?}]", key);
 
         Ok(DataStore::NotFound)
     }
