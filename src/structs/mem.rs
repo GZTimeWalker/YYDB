@@ -80,7 +80,7 @@ impl MemTable {
 }
 
 #[async_trait]
-impl AsyncKVStoreRead for MemTable {
+impl AsyncKvStoreRead for MemTable {
     async fn get(&self, key: Key) -> DataStore {
         if let Some(value) = self.mut_map.read().await.get(&key) {
             return value.clone();
@@ -102,7 +102,7 @@ impl AsyncKVStoreRead for MemTable {
 }
 
 #[async_trait]
-impl AsyncKVStoreWrite for MemTable {
+impl AsyncKvStoreWrite for MemTable {
     async fn set(&self, key: Key, value: DataInner) {
         self.mut_map
             .write()

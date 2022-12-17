@@ -1,9 +1,10 @@
 use async_trait::async_trait;
+use futures::Future;
 
 use crate::utils::*;
 
 #[async_trait]
-pub trait AsyncKVStoreRead: Send + 'static + Sized {
+pub trait AsyncKvStoreRead: Send + 'static + Sized {
     /// Get the value specified by the key
     async fn get(&self, key: Key) -> DataStore;
 
@@ -12,12 +13,21 @@ pub trait AsyncKVStoreRead: Send + 'static + Sized {
 }
 
 #[async_trait]
-pub trait AsyncKVStoreWrite: AsyncKVStoreRead {
+pub trait AsyncKvStoreWrite: AsyncKvStoreRead {
     /// Set the value specified by the key
     async fn set(&self, key: Key, value: DataInner);
 
     /// Delete the value specified by the key
     async fn delete(&self, key: Key);
+}
+
+pub trait AsyncKvIterator {
+    type NextFuture<'a>: Future<Output = Result<(Key, DataInner)>>
+    where
+        Self: 'a;
+
+    /// Get the next key-value pair
+    fn next(&mut self) -> Self::NextFuture<'_>;
 }
 
 #[async_trait]

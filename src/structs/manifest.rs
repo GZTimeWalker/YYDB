@@ -54,7 +54,7 @@ impl Manifest {
 }
 
 #[async_trait]
-impl AsyncKVStoreRead for Manifest {
+impl AsyncKvStoreRead for Manifest {
     async fn get(&self, key: Key) -> DataStore {
         for table in self.tables.values() {
             return match table.get(key).await {

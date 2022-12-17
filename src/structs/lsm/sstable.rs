@@ -40,7 +40,7 @@ impl SSTable {
 }
 
 #[async_trait]
-impl AsyncKVStoreRead for SSTable {
+impl AsyncKvStoreRead for SSTable {
     async fn get(&self, _key: Key) -> DataStore {
         if !self.meta.bloom_filter.contains(_key) {
             return DataStore::NotFound;

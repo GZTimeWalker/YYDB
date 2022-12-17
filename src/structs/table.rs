@@ -69,7 +69,7 @@ impl Drop for Table {
 }
 
 #[async_trait]
-impl AsyncKVStoreRead for Table {
+impl AsyncKvStoreRead for Table {
     async fn get(&self, key: Key) -> DataStore {
         match self.memtable.get(key).await {
             DataStore::Value(value) => return DataStore::Value(value),
@@ -88,7 +88,7 @@ impl AsyncKVStoreRead for Table {
 }
 
 #[async_trait]
-impl AsyncKVStoreWrite for Table {
+impl AsyncKvStoreWrite for Table {
     async fn set(&self, key: Key, value: DataInner) {
         self.manifest
             .write()

@@ -46,6 +46,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install --no-install-recommends -y build-essential cmake bzip2 \
           openssl perl xz-utils zstd libssl-dev zlib1g-dev libncurses-dev pkg-config libudev-dev
+        rustup toolchain install nightly
+        rustup default nightly
+        rustup update
 
     - name: Run Tests
       run: cargo test
@@ -98,7 +101,7 @@ jobs:
 
   typo:
     name: Spell Check with Typos
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
     - name: Checkout Actions Repository

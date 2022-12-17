@@ -1,4 +1,6 @@
-use crate::utils::{IOHandler, KVStore};
+use futures::Future;
+
+use crate::{utils::*, structs::AsyncKvIterator};
 
 #[derive(Debug)]
 pub struct SSTableIter {
@@ -17,11 +19,11 @@ impl SSTableIter {
     }
 }
 
-impl Iterator for SSTableIter {
-    type Item = KVStore;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        // todo!()
-        None
+impl AsyncKvIterator for SSTableIter {
+    type NextFuture<'a> = impl Future<Output = Result<(Key, DataInner)>> + 'a;
+    fn next(&mut self) -> Self::NextFuture<'_> {
+        async move {
+            todo!();
+        }
     }
 }
