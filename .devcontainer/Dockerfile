@@ -19,6 +19,7 @@ RUN set -eux; \
     curl "$url" | sh -s -- -y --no-modify-path --profile minimal --default-toolchain nightly; \
     chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
     rustup component add rustfmt clippy; \
+    rustup component add rust-src --toolchain nightly; \
     rustup --version; \
     cargo --version; \
     rustc --version;

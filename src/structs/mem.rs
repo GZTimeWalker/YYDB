@@ -32,7 +32,7 @@ impl MemTable {
         let path: PathBuf = table_name.into().join(".cache");
         let io = IOHandler::new(&path).await.unwrap();
 
-        debug!("Load memtable: \t{:?}", path);
+        debug!("Load MemTable       : {:?}", path);
 
         if let Ok(mut mem) = MemTable::from_io(&io).await {
             mem.manifest = manifest;
@@ -119,7 +119,7 @@ impl AsyncKvStoreWrite for MemTable {
 
 impl Drop for MemTable {
     fn drop(&mut self) {
-        debug!("Save memtable: \t{:?}", self.io.file_path);
+        debug!("Save Memtable       : {:?}", self.io.file_path);
 
         futures::executor::block_on(async move {
             self.to_io(&self.io).await.unwrap();

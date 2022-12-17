@@ -1,6 +1,6 @@
 use futures::Future;
 
-use crate::{utils::*, structs::AsyncKvIterator};
+use crate::{structs::AsyncKvIterator, utils::*};
 
 #[derive(Debug)]
 pub struct SSTableIter {

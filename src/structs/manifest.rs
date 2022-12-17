@@ -18,7 +18,7 @@ pub struct Manifest {
     io: IOHandler,
     factory: IOHandlerFactory,
     table_id: TableId,
-    row_size: Option<u32>,
+    row_size: u32,
     tables: AvlTreeMap<SSTableKey, SSTable>,
     global_bloom_filter: BloomFilter,
 }
@@ -28,7 +28,7 @@ impl Manifest {
         let table_name: PathBuf = table_name.into();
         let path = PathBuf::from(&table_name).join(".meta");
 
-        debug!("Load manifest: \t{:?}", path);
+        debug!("Load Manifest       : {:?}", path);
 
         let io = IOHandler::new(&path).await.unwrap();
 
@@ -39,7 +39,7 @@ impl Manifest {
                 io,
                 factory: IOHandlerFactory::new(&table_name),
                 table_id: TableId::new(table_name.to_str().unwrap()),
-                row_size: None,
+                row_size: 0,
                 tables: AvlTreeMap::new(),
                 global_bloom_filter: BloomFilter::new_global(),
             }
@@ -47,8 +47,8 @@ impl Manifest {
     }
 
     pub fn with_row_size(&mut self, row_size: u32) {
-        if self.row_size.is_none() {
-            self.row_size = Some(row_size);
+        if self.row_size == 0 {
+            self.row_size = row_size;
         }
     }
 }
@@ -93,16 +93,12 @@ impl AsyncToIO for Manifest {
     /// the order is `magic_number`, `table_id`,
     /// `row_size`, `bloom_filter`, `tables`
     async fn to_io(&self, io: &IOHandler) -> Result<()> {
-        if self.row_size.is_none() {
-            return Err(DbError::UnknownRowSize);
-        }
-
         let mut io = io.inner().await?;
         io.seek(SeekFrom::Start(0)).await?;
 
         io.write_u32(META_MAGIC_NUMBER).await?;
         io.write_u64(self.table_id.0).await?;
-        io.write_u32(self.row_size.unwrap()).await?;
+        io.write_u32(self.row_size).await?;
 
         let bytes = bincode::encode_to_vec(&self.global_bloom_filter, BIN_CODE_CONF)?;
         io.write_u32(bytes.len() as u32).await?;
@@ -168,7 +164,7 @@ impl AsyncFromIO for Manifest {
         Ok(Self {
             io: io.clone().await?,
             table_id,
-            row_size: Some(row_size),
+            row_size,
             tables,
             factory,
             global_bloom_filter,
@@ -178,7 +174,7 @@ impl AsyncFromIO for Manifest {
 
 impl Drop for Manifest {
     fn drop(&mut self) {
-        debug!("Save manifest: \t{:?}", self.io.file_path);
+        debug!("Save Manifest       : {:?}", self.io.file_path);
 
         futures::executor::block_on(async move {
             self.to_io(&self.io).await.unwrap();
@@ -226,7 +222,7 @@ mod tests {
 
             assert_eq!(manifest.tables.len(), 7);
             assert_eq!(manifest.table_id, TableId::new(test_dir));
-            assert_eq!(manifest.row_size, Some(10));
+            assert_eq!(manifest.row_size, 10);
         }
 
         Ok(())

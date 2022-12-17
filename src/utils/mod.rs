@@ -51,6 +51,6 @@ pub fn print_hex_view(buffer: &[u8]) -> Result<()> {
         writeln!(&mut buf)?;
     }
 
-    debug!("Hex view for buffer ({} bytes):\n\n{}", buffer.len(), buf);
+    println!("Hex view for buffer ({} bytes):\n\n{}", buffer.len(), buf);
     Ok(())
 }

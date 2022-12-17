@@ -38,7 +38,7 @@ pub struct Table {
 impl Table {
     pub async fn open(table_name: String) -> Result<Table> {
         let table_id = TableId::new(&table_name);
-        info!("Open table   : \t[{}]#{:x}", table_name, table_id);
+        info!("Open table          : \"{}\"@{:x}", table_name, table_id);
 
         let table_name = &table_name;
         std::fs::create_dir_all(table_name)?;
@@ -64,7 +64,7 @@ impl Table {
 
 impl Drop for Table {
     fn drop(&mut self) {
-        info!("Close table  : \t[{}]#{:x}", self.name, self.id);
+        info!("Close table         : {:?}@{:x}", self.name, self.id);
     }
 }
 

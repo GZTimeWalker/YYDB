@@ -23,6 +23,7 @@ fi
 
 # check if /usr/local/mysql/bin/mysql not exists and not NO_INSTALL is set
 if [[ ! -f "/usr/local/mysql/bin/mysql" ]] && [[ ! -n "${NO_INSTALL+x}" ]] ; then
+    sudo chown -R dev:dev /usr/local/mysql
     make install
     echo "Done, MySQL is installed!"
 else

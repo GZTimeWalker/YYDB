@@ -1,21 +1,17 @@
 use log::{LevelFilter, Metadata, Record};
 
-#[cfg(not(release))]
 lazy_static! {
     static ref LOGGER: Logger = {
-        Logger {
-            output: |_, message| {
-                println!("{}", message);
+        let profile = std::env::var("RUST_DEBUG");
+        match profile {
+            Ok(_) => Logger {
+                output: |_, message| {
+                    println!("{}", message);
+                },
             },
-        }
-    };
-}
-
-#[cfg(release)]
-lazy_static! {
-    static ref LOGGER: Logger = {
-        Logger {
-            output: |level, message| crate::bridge::ffi::mysql_log_write(level as i32, message),
+            _ => Logger {
+                output: |level, message| crate::bridge::ffi::mysql_log_write(level as i32, message),
+            },
         }
     };
 }

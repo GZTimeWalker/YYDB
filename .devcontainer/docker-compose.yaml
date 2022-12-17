@@ -24,4 +24,4 @@ networks:
     name: yydb-dev
     ipam:
       config:
-        - subnet: 192.168.233.0/26
+        - subnet: 192.168.24.0/26
