@@ -63,7 +63,7 @@ impl MemTable {
     }
 
     async fn do_persist(&self) {
-        if self.mut_map.read().await.len() > MEM_BLOCK_NUM {
+        if self.mut_map.read().await.len() >= MEM_BLOCK_NUM {
             self.swap().await;
 
             let locked_map = self.lock_map.clone();
@@ -199,18 +199,20 @@ impl AsyncFromIO for MemTable {
         let mut bytes = Vec::new();
         file_io.read_to_end(&mut bytes).await?;
 
-        let mut hasher = Hasher::new();
-        hasher.update(&bytes);
-
-        if hasher.finalize() != crc32 {
+        if crc32 != {
+            let mut hasher = Hasher::new();
+            hasher.update(&bytes);
+            hasher.finalize()
+        } {
             return Err(DbError::MissChecksum);
         }
 
-        let mut reader = CompressionDecoder::new(bytes.as_slice());
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
-
-        let mut_map: MemStore = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0;
+        let mut_map: MemStore = {
+            let mut reader = CompressionDecoder::new(bytes.as_slice());
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
+            bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0
+        };
 
         Ok(Self {
             manifest: None,
@@ -233,17 +235,18 @@ impl AsyncToIO for MemTable {
             cache_map.insert(*key, value.clone());
         }
 
-        let bytes = bincode::encode_to_vec(cache_map, BIN_CODE_CONF)?;
+        let bytes = {
+            let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
+            writer.write_all(&bincode::encode_to_vec(cache_map, BIN_CODE_CONF)?).await?;
+            writer.shutdown().await?;
+            writer.into_inner()
+        };
 
-        let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
-        writer.write_all(&bytes).await?;
-        writer.shutdown().await?;
-
-        let bytes = writer.into_inner();
-
-        let mut hasher = Hasher::new();
-        hasher.update(&bytes);
-        let crc32 = hasher.finalize();
+        let crc32 = {
+            let mut hasher = Hasher::new();
+            hasher.update(&bytes);
+            hasher.finalize()
+        };
 
         let mut io = io.inner().await?;
 

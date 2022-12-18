@@ -61,6 +61,6 @@ pub fn hex_view(buffer: &[u8]) -> Result<String> {
 
 pub fn print_hex_view(buffer: &[u8]) -> Result<()> {
     println!("{}", hex_view(buffer)?);
-    
+
     Ok(())
 }

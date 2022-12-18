@@ -4,7 +4,6 @@ use std::{
     sync::Arc,
 };
 
-use async_compression::Level;
 use async_trait::async_trait;
 use chrono::TimeZone;
 use tokio::{fs, io::AsyncWriteExt, sync::Mutex};
@@ -35,31 +34,52 @@ impl SSTable {
         &self.meta
     }
 
+    pub fn file_name(&self) -> &str {
+        self.file_name.to_str().unwrap()
+    }
+
     /// archive data to disk
     ///
     /// # Note
     /// should only be called in L0 level
     pub async fn archive(&self, data: Vec<KvStore>) -> Result<()> {
-        let bytes = bincode::encode_to_vec(data, BIN_CODE_CONF)?;
-        let (_, len_offset): (u64, usize) = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?;
+        let entries_count = data.len() as u32;
+        let mut raw_hasher = crc32fast::Hasher::new();
 
-        let bytes = &bytes[len_offset..];
+        let mut bytes_read = 0;
+        let bytes = {
+            let mut writer = CompressionEncoder::new( Vec::new());
+            for kvstore in data.iter() {
+                let row = bincode::encode_to_vec(kvstore, BIN_CODE_CONF).unwrap();
+                bytes_read += row.len();
+                raw_hasher.update(&row);
+                writer.write_all(&row).await?;
+            }
+            writer.shutdown().await?;
+            writer.into_inner()
+        };
 
-        let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
-        writer.write_all(bytes).await?;
-        writer.shutdown().await?;
+        let raw_checksum = raw_hasher.finalize();
+        let mut compressed_hasher = crc32fast::Hasher::new();
+        compressed_hasher.update(&bytes);
+        let compressed_checksum = compressed_hasher.finalize();
 
-        let bytes = writer.into_inner();
-
-        let mut hasher = crc32fast::Hasher::new();
-        hasher.update(&bytes);
-        let checksum = hasher.finalize();
+        debug!(
+            "Encoded ({}/{}) bytes, {} entries, with checksum ({:08x}/{:08x})",
+            bytes_read,
+            bytes.len(),
+            entries_count,
+            raw_checksum,
+            compressed_checksum
+        );
 
         let io = self.iter.lock().await.clone_io().await?;
         let mut file_io = io.inner().await?;
 
         file_io.write_u32(SSTABLE_MAGIC_NUMBER).await?;
-        file_io.write_u32(checksum).await?;
+        file_io.write_u32(raw_checksum).await?;
+        file_io.write_u32(compressed_checksum).await?;
+        file_io.write_u32(entries_count).await?;
         file_io.write_all(&bytes).await?;
 
         drop(file_io);

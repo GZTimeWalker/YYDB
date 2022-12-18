@@ -22,7 +22,7 @@ pub(crate) fn init() {
     // already initialized. this situation is expected
     // when we reinstall the plugin.
     log::set_logger(&*LOGGER).ok();
-
+ 
     log::set_max_level(match option_env!("LOG_LEVEL") {
         Some("error") => LevelFilter::Error,
         Some("warn") => LevelFilter::Warn,
@@ -31,7 +31,7 @@ pub(crate) fn init() {
         Some("trace") => LevelFilter::Trace,
         _ => LevelFilter::Info,
     });
-    
+
     info!("Current log level: {}", log::max_level());
     info!("Logger Initialized.");
 }

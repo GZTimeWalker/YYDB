@@ -1,6 +1,6 @@
 use crate::structs::{kvstore::*, table::TableId};
 
-#[inline]
+#[inline(always)]
 pub fn open_table(table_name: &str) -> u64 {
     let table_name = table_name.to_string();
 
@@ -13,7 +13,7 @@ pub fn open_table(table_name: &str) -> u64 {
     }
 }
 
-#[inline]
+#[inline(always)]
 pub fn close_table(id: u64) {
     run_async! {
         super::runtime::close_table(&TableId(id)).await;

@@ -140,21 +140,20 @@ mod test {
 
         let io_handler = factory.create(key).await?;
 
-        {
-            let mut io = io_handler.inner().await?;
-            io.write(b"hello world").await?;
+        let mut io = io_handler.inner().await?;
+        io.write(b"hello world").await?;
 
-            io.flush().await?;
+        io.flush().await?;
 
-            io.seek(SeekFrom::Start(0)).await?;
+        io.seek(SeekFrom::Start(0)).await?;
 
-            let mut buf = [0u8; 11];
-            io.read(&mut buf).await?;
+        let mut buf = [0u8; 11];
+        io.read(&mut buf).await?;
 
-            assert_eq!(b"hello world", &buf);
+        assert_eq!(b"hello world", &buf);
 
-            io.seek(SeekFrom::Start(0)).await?;
-        }
+        io.seek(SeekFrom::Start(0)).await?;
+        drop(io); // release the lock
 
         let checksum = io_handler.checksum().await?;
         assert_eq!(checksum, 0xd4a1185);

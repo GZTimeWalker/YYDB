@@ -48,7 +48,7 @@ pub fn init() {
 ///     println!("hello");
 /// });
 /// ```
-#[inline]
+#[inline(always)]
 pub fn block_on<F, T>(future: F) -> T
 where
     F: Future<Output = T> + Send + 'static,
@@ -71,7 +71,7 @@ where
 ///     println!("now running on a worker thread");
 /// });
 /// ```
-#[inline]
+#[inline(always)]
 pub fn spawn<F, T>(future: F) -> JoinHandle<T>
 where
     F: Future<Output = T> + Send + 'static,
@@ -81,7 +81,7 @@ where
 }
 
 /// Open a table by name.
-#[inline]
+#[inline(always)]
 pub async fn open_table(table_name: String) -> Option<TableId> {
     if let Ok(table) = Table::open(table_name).await {
         let id = table.id();
@@ -97,13 +97,13 @@ pub async fn open_table(table_name: String) -> Option<TableId> {
 }
 
 /// Get a table by id.
-#[inline]
+#[inline(always)]
 pub async fn get_table(id: &TableId) -> Option<Arc<Table>> {
     Runtime::global().tables.read().await.get(id).cloned()
 }
 
 /// Close a table by id.
-#[inline]
+#[inline(always)]
 pub async fn close_table(id: &TableId) -> Option<Arc<Table>> {
     Runtime::global().tables.write().await.remove(id)
 }

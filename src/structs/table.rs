@@ -91,6 +91,10 @@ impl Table {
 
         todo!();
     }
+
+    pub async fn table_files(&self) -> Vec<String> {
+        self.manifest.read().await.table_files()
+    }
 }
 
 impl Drop for Table {
@@ -155,12 +159,14 @@ impl SizedOnDisk for Table {
 
 #[cfg(test)]
 mod tests {
+    // use rand::{SeedableRng, RngCore};
+
     use super::*;
-    use crate::utils::error::Result;
+    use crate::{utils::error::Result, structs::lsm::tests::check_file};
 
     #[test]
     fn it_works() -> Result<()> {
-        crate::core::runtime::block_on(it_works_async())
+        crate::core::runtime::block_on(it_works_async()) // ensure use one async runtime
     }
 
     async fn it_works_async() -> Result<()> {
@@ -175,17 +181,36 @@ mod tests {
         assert_eq!(table.name(), test_dir);
         assert_eq!(table.id(), TableId::new(test_dir));
 
-        const TEST_SIZE: u64 = 500;
+        const TEST_SIZE: u64 = 600;
+        const DATA_SIZE: usize = 234;
 
         for i in 0..TEST_SIZE {
-            table.set(i, vec![(i % 57 + 65) as u8; 32]).await;
+            // random with seed i
+            // let mut rng = rand::rngs::StdRng::seed_from_u64(i);
+            // let mut data = vec![0; DATA_SIZE];
+            // rng.fill_bytes(&mut data);
+            let data = vec![(i % 57 + 65) as u8; DATA_SIZE];
+
+            table.set(i, data).await;
             tokio::time::sleep(std::time::Duration::from_millis(1)).await;
         }
 
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        // check files
+
+        for table in table.manifest.read().await.table_files() {
+            check_file(&table).await?;
+        }
+
         for i in (5..TEST_SIZE).step_by(23) {
-            let expected_value = vec![(i % 57 + 65) as u8; 32];
+            // random with seed i
+            // let mut rng = rand::rngs::StdRng::seed_from_u64(i);
+            // let mut data = vec![0; DATA_SIZE];
+            // rng.fill_bytes(&mut data);
+            let data = vec![(i % 57 + 65) as u8; DATA_SIZE];
+
             if let DataStore::Value(v) = table.get(i).await? {
-                assert_eq!(v.as_ref(), &expected_value);
+                assert_eq!(v.as_ref(), &data);
             } else {
                 panic!("Value not found");
             }

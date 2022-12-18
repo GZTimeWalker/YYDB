@@ -61,6 +61,13 @@ impl Manifest {
     pub fn add_table(&mut self, table: SSTable) {
         self.tables.insert(table.meta().key, Arc::new(table));
     }
+
+    pub fn table_files(&self) -> Vec<String> {
+        self.tables
+            .values()
+            .map(|table| table.file_name().to_string())
+            .collect()
+    }
 }
 
 #[async_trait]
@@ -124,16 +131,15 @@ impl AsyncToIO for Manifest {
         io.write_u64(self.table_id.0).await?;
         io.write_u32(self.row_size).await?;
 
-        let bytes = bincode::encode_to_vec(&self.bloom_filter, BIN_CODE_CONF)?;
+        let bloom_filter_bytes = {
+            let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
+            writer.write_all(&bincode::encode_to_vec(&self.bloom_filter, BIN_CODE_CONF)?).await?;
+            writer.shutdown().await?;
+            writer.into_inner()
+        };
 
-        let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
-        writer.write_all(&bytes).await?;
-        writer.shutdown().await?;
-
-        let bytes = writer.into_inner();
-
-        io.write_u32(bytes.len() as u32).await?;
-        io.write_all(&bytes).await?;
+        io.write_u32(bloom_filter_bytes.len() as u32).await?;
+        io.write_all(&bloom_filter_bytes).await?;
 
         for (key, table) in self.tables.iter() {
             io.write_u64(key.0).await?;
@@ -166,15 +172,17 @@ impl AsyncFromIO for Manifest {
         let table_id = TableId(file_io.read_u64().await?);
         let row_size = file_io.read_u32().await?;
 
-        let filter_size = file_io.read_u32().await?;
-        let mut bytes = vec![0; filter_size as usize];
-        file_io.read_exact(&mut bytes).await?;
+        let bloom_filter: BloomFilter = {
+            let filter_size = file_io.read_u32().await?;
+            let mut bytes = Vec::with_capacity(filter_size as usize);
+            file_io.read_exact(&mut bytes).await?;
 
-        let mut reader = CompressionDecoder::new(bytes.as_slice());
-        let mut bytes = Vec::new();
-        reader.read_to_end(&mut bytes).await?;
+            let mut reader = CompressionDecoder::new(bytes.as_slice());
+            let mut bytes = Vec::new();
+            reader.read_to_end(&mut bytes).await?;
 
-        let bloom_filter: BloomFilter = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0;
+            bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0
+        };
 
         let mut tables = AvlTreeMap::new();
 
