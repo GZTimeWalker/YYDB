@@ -9,7 +9,7 @@ use chrono::TimeZone;
 use tokio::{
     fs,
     io::AsyncWriteExt,
-    sync::{Mutex, MutexGuard},
+    sync::{Mutex, MutexGuard, RwLock},
 };
 
 use crate::{structs::*, utils::*};
@@ -20,6 +20,7 @@ use super::*;
 pub struct SSTable {
     meta: SSTableMeta,
     iter: Mutex<SSTableIter>,
+    status: RwLock<SSTableStatus>,
     file_name: Arc<PathBuf>,
 }
 
@@ -34,28 +35,34 @@ impl SSTable {
         Ok(Self {
             meta,
             file_name: io.file_path.clone(),
+            status: RwLock::new(SSTableStatus::Available),
             iter: Mutex::new(SSTableIter::new(io, data_size).await?),
         })
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn meta(&self) -> &SSTableMeta {
         &self.meta
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn file_name(&self) -> &str {
         self.file_name.to_str().unwrap()
     }
 
-    #[inline(always)]
+    #[inline]
     pub async fn iter(&self) -> MutexGuard<SSTableIter> {
         self.iter.lock().await
     }
 
-    #[inline(always)]
+    #[inline]
     pub async fn init_iter(&self) -> Result<()> {
         self.iter.lock().await.init_iter_for_key(0).await
+    }
+
+    #[inline]
+    pub async fn is_available(&self) -> bool {
+        *self.status.read().await == SSTableStatus::Available
     }
 
     /// archive data to disk, only for L0
@@ -117,8 +124,6 @@ impl SSTable {
 #[async_trait]
 impl AsyncKvStoreRead for SSTable {
     async fn get(&self, key: Key) -> Result<DataStore> {
-        // TODO: use binary search instead of linear search
-
         let mut iter = self.iter.lock().await;
         iter.init_iter_for_key(key).await?;
 
@@ -132,7 +137,7 @@ impl AsyncKvStoreRead for SSTable {
     }
 
     async fn len(&self) -> usize {
-        todo!();
+        self.meta.entries_count
     }
 }
 
@@ -154,8 +159,8 @@ impl SSTableKey {
     }
 
     /// get level of this SSTable
-    pub fn level(&self) -> u32 {
-        (self.0 >> 60) as u32
+    pub fn level(&self) -> SSTableLevel {
+        (self.0 >> 60) as SSTableLevel
     }
 
     /// get timestamp of this SSTable

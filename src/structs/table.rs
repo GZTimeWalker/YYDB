@@ -324,6 +324,10 @@ mod tests {
 
         debug!("{:=^80}", format!(" Got {} Items ({:?}) ", count, start.elapsed()));
 
+        let size_on_disk = table.size_on_disk().await?;
+
+        debug!("Size on disk: {}", human_read_size(size_on_disk));
+
         debug!("{:=^80}", format!(" All Test Passed ({:?}) ", test_start.elapsed()));
         Ok(())
     }

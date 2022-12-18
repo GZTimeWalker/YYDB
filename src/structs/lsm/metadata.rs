@@ -5,6 +5,7 @@ use super::sstable::SSTableKey;
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct SSTableMeta {
     pub key: SSTableKey,
+    pub entries_count: usize,
     pub bloom_filter: BloomFilter,
 }
 
@@ -12,8 +13,14 @@ impl SSTableMeta {
     pub fn new(key: SSTableKey) -> Self {
         Self {
             key,
+            entries_count: 0,
             bloom_filter: BloomFilter::new(key.level()),
         }
+    }
+
+    #[inline]
+    pub fn set_entries_count(&mut self, count: usize) {
+        self.entries_count = count;
     }
 }
 

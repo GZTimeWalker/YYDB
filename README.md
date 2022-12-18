@@ -37,3 +37,13 @@ We need to expose some symbols to the MySQL server, such as `_mysql_plugin_decla
 We provide a [Dev Container](https://code.visualstudio.com/docs/remote/containers) for you to develop this project. You can use [VSCode](https://code.visualstudio.com/) to open this project and press `F1` to run `Dev Containers: Reopen in Container` to start the Dev Container.
 
 Then you can simply run `scripts/depoly.sh && scripts/build.sh` to build the project.
+
+## Note
+
+This project is only a course project, so it is not well tested and may have bugs.
+
+Many design decisions are not well considered, so it may not be a good example for you to learn from.
+
+## References
+
+- [KipDB](https://github.com/KKould/KipDB)

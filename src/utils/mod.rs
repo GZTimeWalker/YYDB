@@ -68,3 +68,21 @@ pub fn print_hex_view(buffer: &[u8]) -> Result<()> {
 
     Ok(())
 }
+
+pub fn human_read_size(size: u64) -> String {
+    let mut size = size as f64;
+    let mut unit = "B";
+    if size > 1024.0 {
+        size /= 1024.0;
+        unit = "KiB";
+    }
+    if size > 1024.0 {
+        size /= 1024.0;
+        unit = "MiB";
+    }
+    if size > 1024.0 {
+        size /= 1024.0;
+        unit = "GiB";
+    }
+    format!("{:.2}{}", size, unit)
+}

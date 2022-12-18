@@ -102,12 +102,14 @@ impl MemTable {
             })
             .collect();
 
+        meta.set_entries_count(data.len());
+
         let gurad_manifest = manifest.read().await;
         let sstable = SSTable::new(meta, &gurad_manifest.factory, gurad_manifest.row_size).await?;
         sstable.archive(&mut data).await?;
         drop(gurad_manifest);
 
-        manifest.write().await.add_table(sstable);
+        manifest.write().await.add_table(sstable).await;
 
         Ok(())
     }

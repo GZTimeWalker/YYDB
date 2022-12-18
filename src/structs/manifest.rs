@@ -11,6 +11,7 @@ use crate::{structs::table::TableId, utils::*};
 pub struct Manifest {
     io: IOHandler,
     tables: AvlTreeMap<SSTableKey, Arc<SSTable>>,
+
     pub factory: IOHandlerFactory,
     pub table_id: TableId,
     pub row_size: u32,
@@ -54,8 +55,9 @@ impl Manifest {
         LsmTreeIterator::new(cache)
     }
 
-    pub fn add_table(&mut self, table: SSTable) {
-        self.tables.insert(table.meta().key, Arc::new(table));
+    pub async fn add_table(&mut self, table: SSTable) {
+        let table = Arc::new(table);
+        self.tables.insert(table.meta().key, table.clone());
 
         // TODO: compact existing tables
         //
@@ -64,6 +66,11 @@ impl Manifest {
         // 2. check if there are any tables that can be compacted
         // 3. compact them with `fn compact_tables(tables: Vec<Arc<SSTable>>) -> SSTable`
         // 4. add the new table to the map with `self.add_table`
+
+        // self.table_tracker.push_back(table);
+        // crate::core::runtime::spawn(async move {
+        //     self.table_tracker.compact().await;
+        // });
     }
 
     pub fn table_files(&self) -> Vec<String> {
@@ -207,6 +214,12 @@ impl AsyncFromIO for Manifest {
             tables.insert(key, Arc::new(table));
         }
 
+        // let mut table_tracker = SSTableTracker::new();
+
+        // for table in tables.values() {
+        //     table_tracker.push_back(table.clone());
+        // }
+
         Ok(Self {
             io: io.clone().await?,
             table_id,
@@ -214,6 +227,7 @@ impl AsyncFromIO for Manifest {
             tables,
             factory,
             bloom_filter,
+            // table_tracker,
         })
     }
 }
