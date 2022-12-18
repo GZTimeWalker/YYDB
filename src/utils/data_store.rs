@@ -1,4 +1,4 @@
-use std::{sync::Arc, fmt::Display};
+use std::{fmt::Display, sync::Arc};
 
 use super::*;
 
@@ -47,8 +47,8 @@ impl Display for DataStore {
 mod tests {
     use std::{collections::VecDeque, vec};
 
-    use rand::{SeedableRng, RngCore};
-    use tokio::{io::{AsyncWriteExt, AsyncReadExt}};
+    use rand::{RngCore, SeedableRng};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     use super::*;
 
@@ -70,7 +70,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn it_works_async() -> Result<()>{
+    async fn it_works_async() -> Result<()> {
         const TEST_SIZE: u64 = 1400;
         const DATA_SIZE: usize = 666;
         crate::utils::logger::init();
@@ -89,7 +89,7 @@ mod tests {
         let mut bytes_read = 0;
 
         let bytes = {
-            let mut writer = CompressionEncoder::new( Vec::new());
+            let mut writer = CompressionEncoder::new(Vec::new());
             for kvstore in data_vec.iter() {
                 let row = bincode::encode_to_vec(kvstore, BIN_CODE_CONF).unwrap();
                 bytes_read += row.len();
@@ -109,7 +109,9 @@ mod tests {
         };
 
         let mut decompressed = Vec::new();
-        CompressionDecoder::new(buffer.as_slice()).read_to_end(&mut decompressed).await?;
+        CompressionDecoder::new(buffer.as_slice())
+            .read_to_end(&mut decompressed)
+            .await?;
 
         assert!(bytes == decompressed);
 
@@ -145,7 +147,8 @@ mod tests {
                     (DataStore::Value(value), DataStore::Value(data)) => {
                         error!(
                             "Error decoding data [{}@{}]: {}\n{}",
-                            key, count,
+                            key,
+                            count,
                             hex_view(&value)?,
                             hex_view(&data)?,
                         );

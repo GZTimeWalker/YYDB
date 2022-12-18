@@ -241,7 +241,9 @@ impl AsyncToIO for MemTable {
 
         let bytes = {
             let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
-            writer.write_all(&bincode::encode_to_vec(cache_map, BIN_CODE_CONF)?).await?;
+            writer
+                .write_all(&bincode::encode_to_vec(cache_map, BIN_CODE_CONF)?)
+                .await?;
             writer.shutdown().await?;
             writer.into_inner()
         };

@@ -4,11 +4,7 @@ use avl::AvlTreeMap;
 use std::{collections::VecDeque, io::SeekFrom, path::PathBuf, sync::Arc};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-use super::{
-    kvstore::*,
-    lsm::*,
-    META_MAGIC_NUMBER,
-};
+use super::{kvstore::*, lsm::*, META_MAGIC_NUMBER};
 use crate::{structs::table::TableId, utils::*};
 
 #[derive(Debug)]
@@ -133,7 +129,9 @@ impl AsyncToIO for Manifest {
 
         let bloom_filter_bytes = {
             let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
-            writer.write_all(&bincode::encode_to_vec(&self.bloom_filter, BIN_CODE_CONF)?).await?;
+            writer
+                .write_all(&bincode::encode_to_vec(&self.bloom_filter, BIN_CODE_CONF)?)
+                .await?;
             writer.shutdown().await?;
             writer.into_inner()
         };
@@ -174,7 +172,7 @@ impl AsyncFromIO for Manifest {
 
         let bloom_filter: BloomFilter = {
             let filter_size = file_io.read_u32().await?;
-            let mut bytes = Vec::with_capacity(filter_size as usize);
+            let mut bytes = vec![0; filter_size as usize];
             file_io.read_exact(&mut bytes).await?;
 
             let mut reader = CompressionDecoder::new(bytes.as_slice());

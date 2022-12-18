@@ -159,10 +159,10 @@ impl SizedOnDisk for Table {
 
 #[cfg(test)]
 mod tests {
-    use rand::{SeedableRng, RngCore};
+    use rand::{RngCore, SeedableRng};
 
     use super::*;
-    use crate::{utils::error::Result, structs::lsm::tests::check_file};
+    use crate::{structs::lsm::tests::check_file, utils::error::Result};
 
     #[test]
     fn it_works() -> Result<()> {

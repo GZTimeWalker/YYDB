@@ -10,7 +10,9 @@ extern crate lazy_static;
 #[macro_use]
 mod utils;
 
+#[cfg(not(test))]
 mod bridge;
+
 pub mod core;
 mod structs;
 

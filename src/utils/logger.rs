@@ -1,17 +1,21 @@
 use log::{LevelFilter, Metadata, Record};
 
+#[cfg(test)]
 lazy_static! {
     static ref LOGGER: Logger = {
-        let profile = std::env::var("RUST_DEBUG");
-        match profile {
-            Ok(_) => Logger {
-                output: |_, message| {
-                    println!("{message}");
-                },
+        Logger {
+            output: |_, message| {
+                println!("{message}");
             },
-            _ => Logger {
-                output: |level, message| crate::bridge::ffi::mysql_log_write(level as i32, message),
-            },
+        }
+    };
+}
+
+#[cfg(not(test))]
+lazy_static! {
+    static ref LOGGER: Logger = {
+        Logger {
+            output: |level, message| crate::bridge::ffi::mysql_log_write(level as i32, message),
         }
     };
 }
@@ -20,7 +24,7 @@ lazy_static! {
 pub(crate) fn init() {
     // an error will be returned if the logger was
     // already initialized. this situation is expected
-    // when we reinstall the plugin. 
+    // when we reinstall the plugin.
     log::set_logger(&*LOGGER).ok();
 
     log::set_max_level(match option_env!("LOG_LEVEL") {

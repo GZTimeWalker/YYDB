@@ -5,15 +5,12 @@
 
 namespace yydb {
     /* Logging */
-
     void mysql_log_write(std::int32_t level, rust::Str msg) {
         mysql_log_write_raw(level, msg.data(), msg.size());
     }
-
     /* End of logging */
 
     /* Lifecycle */
-
     int ha_yydb_core_init() {
         rust_init();
 
@@ -27,7 +24,6 @@ namespace yydb {
         // do other stuff
         return 0;
     }
-
     /* End of lifecycle */
 
     /* Table */
@@ -52,7 +48,7 @@ namespace yydb {
         put_hex((const uint8_t*)data, length);
     }
 
-    int ha_yydb_rnd_next(uint64_t table_id,u_char* buf, uint length) {
+    int ha_yydb_rnd_next(uint64_t table_id, u_char* buf, uint length) {
         return rnd_next(table_id, (uint8_t*)buf, length);
     }
     /* End of table */

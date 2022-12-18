@@ -45,15 +45,15 @@ impl SSTable {
     pub async fn archive(&self, data: &mut Vec<KvStore>) -> Result<()> {
         data.sort_by(|a, b| a.0.cmp(&b.0));
 
-        let min_key = data.first().unwrap().0.clone();
-        let max_key = data.last().unwrap().0.clone();
+        let min_key = data.first().unwrap().0;
+        let max_key = data.last().unwrap().0;
 
         let entries_count = data.len() as u32;
         let mut raw_hasher = crc32fast::Hasher::new();
 
         let mut bytes_read = 0;
         let bytes = {
-            let mut writer = CompressionEncoder::new( Vec::new());
+            let mut writer = CompressionEncoder::new(Vec::new());
             for kvstore in data.iter() {
                 let row = bincode::encode_to_vec(kvstore, BIN_CODE_CONF).unwrap();
                 bytes_read += row.len();
@@ -76,7 +76,8 @@ impl SSTable {
             entries_count,
             raw_checksum,
             compressed_checksum,
-            min_key, max_key
+            min_key,
+            max_key
         );
 
         let io = self.iter.lock().await.clone_io().await?;

@@ -72,7 +72,6 @@ impl SSTableIter {
     }
 
     pub async fn init_iter_for_key(&mut self, key: Key) -> Result<()> {
-
         if let Some(last_key) = self.last_entry_key {
             if last_key <= key {
                 trace!("Iter for further key: [{}]", key);
@@ -93,7 +92,6 @@ impl SSTableIter {
         self.reader
             .replace(CompressionDecoder::new(BufReader::new(file)));
 
-
         Ok(())
     }
 
@@ -110,8 +108,7 @@ impl AsyncIterator<KvStore> for SSTableIter {
             if self.entry_cur >= self.entries_count {
                 debug!(
                     "Decoded {} bytes with checksum {:08x}",
-                    self.bytes_read,
-                    self.raw_checksum
+                    self.bytes_read, self.raw_checksum
                 );
                 if let Some(hasher) = self.hasher.take() {
                     let hash = hasher.finalize();
@@ -124,7 +121,10 @@ impl AsyncIterator<KvStore> for SSTableIter {
                         );
                     }
                 } else {
-                    warn!("No hasher found for file \"{}\"", self.io.file_path.display());
+                    warn!(
+                        "No hasher found for file \"{}\"",
+                        self.io.file_path.display()
+                    );
                 }
             }
 
@@ -144,15 +144,19 @@ impl AsyncIterator<KvStore> for SSTableIter {
 
             let slice = self.buf.make_contiguous();
 
-            let (data_store, offset) = bincode::decode_from_slice::<KvStore, BincodeConfig>(slice, BIN_CODE_CONF).map_err(|err| {
-                error!(
-                    "Error decoding data : {:#?} in file {}, {}",
-                    err,
-                    self.io.file_path.display(),
-                    hex_view(&slice).or_else(|_| Result::Ok("< cannot format >".to_string())).unwrap()
-                );
-                err
-            })?;
+            let (data_store, offset) =
+                bincode::decode_from_slice::<KvStore, BincodeConfig>(slice, BIN_CODE_CONF)
+                    .map_err(|err| {
+                        error!(
+                            "Error decoding data : {:#?} in file {}, {}",
+                            err,
+                            self.io.file_path.display(),
+                            hex_view(slice)
+                                .or_else(|_| Result::Ok("< cannot format >".to_string()))
+                                .unwrap()
+                        );
+                        err
+                    })?;
 
             trace!(
                 "Decoded data        : [{}] -> [{}], {}",
@@ -163,7 +167,7 @@ impl AsyncIterator<KvStore> for SSTableIter {
 
             self.entry_cur += 1;
             self.buf.drain(..offset);
-            self.last_entry_key.replace(data_store.0.clone());
+            self.last_entry_key.replace(data_store.0);
 
             Ok(Some(data_store))
         }
@@ -173,8 +177,8 @@ impl AsyncIterator<KvStore> for SSTableIter {
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use tokio::fs::File;
     use crate::structs::SSTABLE_MAGIC_NUMBER;
+    use tokio::fs::File;
 
     pub async fn check_file(file_name: &str) -> Result<()> {
         debug!("Checking sstable file {}", file_name);
@@ -199,24 +203,30 @@ pub mod tests {
         hasher.update(&bytes);
         let computed_compressed_checksum = hasher.finalize();
 
-        debug!("Validating checksums : {:08x} == {:08x}", compressed_checksum, computed_compressed_checksum);
+        debug!(
+            "Validating checksums : {:08x} == {:08x}",
+            compressed_checksum, computed_compressed_checksum
+        );
         assert_eq!(compressed_checksum, computed_compressed_checksum);
 
         let mut raw = Vec::new();
-        CompressionDecoder::new(bytes.as_slice()).read_to_end(&mut raw).await?;
+        CompressionDecoder::new(bytes.as_slice())
+            .read_to_end(&mut raw)
+            .await?;
 
         let mut hasher = Hasher::new();
         hasher.update(&raw);
         let computed_raw_checksum = hasher.finalize();
 
-        debug!("Validating checksums : {:08x} == {:08x}", raw_checksum, computed_raw_checksum);
+        debug!(
+            "Validating checksums : {:08x} == {:08x}",
+            raw_checksum, computed_raw_checksum
+        );
         assert_eq!(raw_checksum, computed_raw_checksum);
 
         debug!(
             "File \"{}\" has {} bytes, {} entries, no problems found",
-            file_name,
-            bytes_total,
-            len
+            file_name, bytes_total, len
         );
 
         Ok(())

@@ -56,7 +56,11 @@ pub fn hex_view(buffer: &[u8]) -> Result<String> {
         writeln!(&mut buf)?;
     }
 
-    Ok(format!("Hex view for buffer ({} bytes):\n\n{}", buffer.len(), buf))
+    Ok(format!(
+        "Hex view for buffer ({} bytes):\n\n{}",
+        buffer.len(),
+        buf
+    ))
 }
 
 pub fn print_hex_view(buffer: &[u8]) -> Result<()> {
