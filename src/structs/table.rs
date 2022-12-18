@@ -211,8 +211,8 @@ mod tests {
 
         const TEST_SIZE: u64 = 666;
         const DATA_SIZE: usize = 666;
-        const NUMBER_TESTS: usize = 233;
-        const RANDOM_TESTS: usize = 50;
+        const NUMBER_TESTS: usize = 600;
+        const RANDOM_TESTS: usize = TEST_SIZE as usize / 2;
 
         debug!("{:=^80}", " Init Test Set ");
 
@@ -221,7 +221,7 @@ mod tests {
             let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
 
             let mut rng = rand::rngs::StdRng::seed_from_u64(i);
-            let mut rnd_data = vec![0; DATA_SIZE];
+            let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
             rng.fill_bytes(&mut rnd_data);
 
             data.extend_from_slice(&rnd_data);
@@ -237,16 +237,18 @@ mod tests {
         debug!(">>> Waiting for flush...");
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
 
-        let start = std::time::Instant::now();
-
         // check files
         debug!("{:=^80}", " Check Files ");
+        let test_start = std::time::Instant::now();
 
         for table in table.manifest.read().await.table_files() {
             check_file(&table).await?;
         }
 
+        debug!("{:=^80}", format!(" Check Files Done ({:?}) ", test_start.elapsed()));
+
         debug!("{:=^80}", " Sequential Read Test ");
+        let start = std::time::Instant::now();
 
         for i in (5..TEST_SIZE).step_by(13) {
             // random with seed i
@@ -255,7 +257,7 @@ mod tests {
                     let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
 
                     let mut rng = rand::rngs::StdRng::seed_from_u64(i);
-                    let mut rnd_data = vec![0; DATA_SIZE];
+                    let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
                     rng.fill_bytes(&mut rnd_data);
 
                     data.extend_from_slice(&rnd_data);
@@ -272,8 +274,11 @@ mod tests {
             }
         }
 
+        debug!("{:=^80}", format!(" Sequential Read Test Done ({:?}) ", start.elapsed()));
+
         // test for random key reading
         debug!("{:=^80}", " Random Read Test ");
+        let start = std::time::Instant::now();
 
         for _ in 0..RANDOM_TESTS {
             let mut rng = rand::rngs::StdRng::seed_from_u64(rand::random());
@@ -286,7 +291,7 @@ mod tests {
                     let mut data = vec![(key % 57 + 65) as u8; NUMBER_TESTS];
 
                     let mut rng = rand::rngs::StdRng::seed_from_u64(key);
-                    let mut rnd_data = vec![0; DATA_SIZE];
+                    let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
                     rng.fill_bytes(&mut rnd_data);
 
                     data.extend_from_slice(&rnd_data);
@@ -298,13 +303,14 @@ mod tests {
             }
         }
 
-        debug!("{:=^80}", " Delete Test ");
+        debug!("{:=^80}", format!(" Random Read Test Done ({:?}) ", start.elapsed()));
 
-        table.delete(43).await;
-        assert_eq!(table.get(43).await?, DataStore::Deleted);
+        debug!("{:=^80}", " NotFound Test ");
+
         assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
 
         debug!("{:=^80}", " Iter Test ");
+        let start = std::time::Instant::now();
 
         table.init_iter().await;
 
@@ -316,9 +322,9 @@ mod tests {
 
         table.end_iter().await;
 
-        debug!("Get {} items in total", count);
+        debug!("{:=^80}", format!(" Got {} Items ({:?}) ", count, start.elapsed()));
 
-        debug!("{:=^80}", format!(" All Test Passed ({:?}) ", start.elapsed()));
+        debug!("{:=^80}", format!(" All Test Passed ({:?}) ", test_start.elapsed()));
         Ok(())
     }
 }
