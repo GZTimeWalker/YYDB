@@ -6,7 +6,11 @@ use std::{
 
 use async_trait::async_trait;
 use chrono::TimeZone;
-use tokio::{fs, io::AsyncWriteExt, sync::Mutex};
+use tokio::{
+    fs,
+    io::AsyncWriteExt,
+    sync::{Mutex, MutexGuard},
+};
 
 use crate::{structs::*, utils::*};
 
@@ -20,28 +24,41 @@ pub struct SSTable {
 }
 
 impl SSTable {
-    pub async fn new(meta: SSTableMeta, factory: &IOHandlerFactory, row_size: u32) -> Result<Self> {
+    pub async fn new(
+        meta: SSTableMeta,
+        factory: &IOHandlerFactory,
+        data_size: u32,
+    ) -> Result<Self> {
         let key = meta.key;
         let io = factory.create(key).await?;
         Ok(Self {
             meta,
             file_name: io.file_path.clone(),
-            iter: Mutex::new(SSTableIter::new(io, row_size).await?),
+            iter: Mutex::new(SSTableIter::new(io, data_size).await?),
         })
     }
 
+    #[inline(always)]
     pub fn meta(&self) -> &SSTableMeta {
         &self.meta
     }
 
+    #[inline(always)]
     pub fn file_name(&self) -> &str {
         self.file_name.to_str().unwrap()
     }
 
-    /// archive data to disk
-    ///
-    /// # Note
-    /// should only be called in L0 level
+    #[inline(always)]
+    pub async fn iter(&self) -> MutexGuard<SSTableIter> {
+        self.iter.lock().await
+    }
+
+    #[inline(always)]
+    pub async fn init_iter(&self) -> Result<()> {
+        self.iter.lock().await.init_iter_for_key(0).await
+    }
+
+    /// archive data to disk, only for L0
     pub async fn archive(&self, data: &mut Vec<KvStore>) -> Result<()> {
         data.sort_by(|a, b| a.0.cmp(&b.0));
 
@@ -89,7 +106,7 @@ impl SSTable {
         file_io.write_u32(entries_count).await?;
         file_io.write_all(&bytes).await?;
 
-        drop(file_io);
+        drop(file_io); // release lock
 
         self.iter.lock().await.recreate().await?;
 
@@ -100,6 +117,8 @@ impl SSTable {
 #[async_trait]
 impl AsyncKvStoreRead for SSTable {
     async fn get(&self, key: Key) -> Result<DataStore> {
+        // TODO: use binary search instead of linear search
+
         let mut iter = self.iter.lock().await;
         iter.init_iter_for_key(key).await?;
 

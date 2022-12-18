@@ -6,6 +6,7 @@ use std::io::SeekFrom;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
+use tokio::time::Instant;
 
 use tokio::sync::RwLock;
 
@@ -70,7 +71,9 @@ impl MemTable {
             let manifest = self.manifest.clone().expect("Manifest is not set");
 
             crate::core::runtime::spawn(async move {
+                let start = Instant::now();
                 Self::persist(locked_map, manifest).await.unwrap();
+                info!("Persist to disk in {:?}", start.elapsed());
             });
         }
     }

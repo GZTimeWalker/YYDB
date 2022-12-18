@@ -6,6 +6,7 @@ use super::manifest::Manifest;
 use super::mem::MemTable;
 use super::{kvstore::*, MemTableIterator};
 use crate::utils::*;
+use std::collections::HashSet;
 use std::collections::hash_map::DefaultHasher;
 use std::fmt::{Formatter, LowerHex};
 use std::hash::{Hash, Hasher};
@@ -33,9 +34,12 @@ pub struct Table {
     id: TableId,
     name: String,
     memtable: MemTable,
-    memtable_iter: RwLock<Option<MemTableIterator>>,
     manifest: Arc<RwLock<Manifest>>,
+
+    // iterators
+    memtable_iter: RwLock<Option<MemTableIterator>>,
     lsm_iter: RwLock<Option<LsmTreeIterator>>,
+    deleted: RwLock<Option<HashSet<Key>>>
 }
 
 impl Table {
@@ -52,9 +56,10 @@ impl Table {
             id: table_id,
             name: table_name.to_string(),
             memtable: MemTable::new(table_name, Some(manifest.clone())).await?,
-            memtable_iter: RwLock::new(None),
             manifest,
+            memtable_iter: RwLock::new(None),
             lsm_iter: RwLock::new(None),
+            deleted: RwLock::new(None),
         })
     }
 
@@ -75,21 +80,43 @@ impl Table {
             .write()
             .await
             .replace(self.manifest.read().await.iter());
+        self.deleted.write().await.replace(HashSet::new());
     }
 
     pub async fn end_iter(&self) {
         self.memtable_iter.write().await.take();
         self.lsm_iter.write().await.take();
+        self.deleted.write().await.take();
     }
 
-    pub async fn next(&self) -> Option<KvStore> {
-        if let Some(iter) = self.memtable_iter.write().await.as_mut() {
-            if let Some(kv) = iter.next() {
-                return Some(kv);
-            };
-        };
+    pub async fn next(&self) -> Result<Option<KvStore>> {
+        if let Some(memtable_iter) = self.memtable_iter.write().await.as_mut() {
+            while let Some(kvstore) = memtable_iter.next() {
+                if let DataStore::Deleted = kvstore.1 {
+                    self.deleted.write().await.as_mut().unwrap().insert(kvstore.0);
+                    continue;
+                } else if self.deleted.read().await.as_ref().unwrap().contains(&kvstore.0) {
+                    continue;
+                }
 
-        todo!();
+                return Ok(Some(kvstore));
+            }
+        }
+
+        if let Some(lsm_iter) = self.lsm_iter.write().await.as_mut() {
+            while let Some(kvstore) = lsm_iter.next().await? {
+                if let DataStore::Deleted = kvstore.1 {
+                    self.deleted.write().await.as_mut().unwrap().insert(kvstore.0);
+                    continue;
+                } else if self.deleted.read().await.as_ref().unwrap().contains(&kvstore.0) {
+                    continue;
+                }
+
+                return Ok(Some(kvstore));
+            }
+        }
+
+        Ok(None)
     }
 
     pub async fn table_files(&self) -> Vec<String> {
@@ -181,9 +208,9 @@ mod tests {
         assert_eq!(table.name(), test_dir);
         assert_eq!(table.id(), TableId::new(test_dir));
 
-        const TEST_SIZE: u64 = 600;
-        const DATA_SIZE: usize = 223;
-        const RANDOM_TESTS: usize = 100;
+        const TEST_SIZE: u64 = 666;
+        const DATA_SIZE: usize = 666;
+        const RANDOM_TESTS: usize = 211;
 
         debug!("{:=^80}", " Init Test Set ");
 
@@ -203,7 +230,8 @@ mod tests {
             table.delete(i).await;
         }
 
-        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        debug!(">>> Waiting for flush...");
+        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
 
         // check files
         debug!("{:=^80}", " Check Files ");
@@ -216,18 +244,25 @@ mod tests {
 
         for i in (5..TEST_SIZE).step_by(13) {
             // random with seed i
-            if let DataStore::Value(v) = table.get(i).await? {
-                let mut data = vec![(i % 57 + 65) as u8; 64];
+            match table.get(i).await? {
+                DataStore::Value(v) => {
+                    let mut data = vec![(i % 57 + 65) as u8; 64];
 
-                let mut rng = rand::rngs::StdRng::seed_from_u64(i);
-                let mut rnd_data = vec![0; DATA_SIZE];
-                rng.fill_bytes(&mut rnd_data);
+                    let mut rng = rand::rngs::StdRng::seed_from_u64(i);
+                    let mut rnd_data = vec![0; DATA_SIZE];
+                    rng.fill_bytes(&mut rnd_data);
 
-                data.extend_from_slice(&rnd_data);
+                    data.extend_from_slice(&rnd_data);
 
-                assert_eq!(v.as_ref(), &data);
-            } else {
-                assert_eq!(i % 5, 0);
+                    assert_eq!(v.as_ref(), &data);
+                }
+                _ => {
+                    if i % 5 == 0 {
+                        continue;
+                    } else {
+                        panic!("Unexpected value for key {}", i);
+                    }
+                }
             }
         }
 
@@ -262,6 +297,20 @@ mod tests {
         table.delete(43).await;
         assert_eq!(table.get(43).await?, DataStore::Deleted);
         assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
+
+        debug!("{:=^80}", " Iter Test ");
+
+        table.init_iter().await;
+
+        let mut count = 0;
+        while let Some(next) = table.next().await? {
+            trace!("Get next: {:?}", next);
+            count += 1;
+        }
+
+        table.end_iter().await;
+
+        debug!("Get {} items in total", count);
 
         debug!("{:=^80}", " All Test Passed ");
         Ok(())

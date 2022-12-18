@@ -56,6 +56,14 @@ impl Manifest {
 
     pub fn add_table(&mut self, table: SSTable) {
         self.tables.insert(table.meta().key, Arc::new(table));
+
+        // TODO: compact existing tables
+        //
+        // 0. spawn a new task with `crate::core::runtime::spawn`
+        // 1. read all table into a map (level, (key, Arc<SSTable>))
+        // 2. check if there are any tables that can be compacted
+        // 3. compact them with `fn compact_tables(tables: Vec<Arc<SSTable>>) -> SSTable`
+        // 4. add the new table to the map with `self.add_table`
     }
 
     pub fn table_files(&self) -> Vec<String> {
@@ -255,16 +263,7 @@ mod tests {
             }
 
             assert_eq!(manifest.tables.len(), 7);
-            // manifest.to_io(&manifest.io).await.unwrap();
         }
-
-        // {
-        //     let manifest = Manifest::new(test_dir).await?;
-
-        //     assert_eq!(manifest.tables.len(), 7);
-        //     assert_eq!(manifest.table_id, TableId::new(test_dir));
-        //     assert_eq!(manifest.row_size, 10);
-        // }
 
         Ok(())
     }

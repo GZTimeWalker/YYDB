@@ -5,7 +5,6 @@ use super::sstable::SSTableKey;
 #[derive(Debug, Clone, Encode, Decode)]
 pub struct SSTableMeta {
     pub key: SSTableKey,
-    pub level: u32,
     pub bloom_filter: BloomFilter,
 }
 
@@ -13,7 +12,6 @@ impl SSTableMeta {
     pub fn new(key: SSTableKey) -> Self {
         Self {
             key,
-            level: key.level(),
             bloom_filter: BloomFilter::new(key.level()),
         }
     }
