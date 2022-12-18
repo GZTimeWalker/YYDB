@@ -89,7 +89,7 @@ impl MemTable {
         let key = SSTableKey::new(0u64);
         let mut meta = SSTableMeta::new(key);
 
-        let data: Vec<KvStore> = locked_map
+        let mut data: Vec<KvStore> = locked_map
             .read()
             .await
             .iter()
@@ -101,7 +101,7 @@ impl MemTable {
 
         let gurad_manifest = manifest.read().await;
         let sstable = SSTable::new(meta, &gurad_manifest.factory, gurad_manifest.row_size).await?;
-        sstable.archive(data).await?;
+        sstable.archive(&mut data).await?;
         drop(gurad_manifest);
 
         manifest.write().await.add_table(sstable);
@@ -125,10 +125,14 @@ impl MemTable {
 impl AsyncKvStoreRead for MemTable {
     async fn get(&self, key: Key) -> Result<DataStore> {
         if let Some(value) = self.mut_map.read().await.get(&key) {
+            trace!("Get value: [{}] -> [{}]", key, value);
+
             return Ok(value.clone());
         }
 
         if let Some(value) = self.lock_map.read().await.get(&key) {
+            trace!("Get value: [{}] -> [{}]", key, value);
+
             return Ok(value.clone());
         }
 

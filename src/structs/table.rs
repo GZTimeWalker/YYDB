@@ -159,7 +159,7 @@ impl SizedOnDisk for Table {
 
 #[cfg(test)]
 mod tests {
-    // use rand::{SeedableRng, RngCore};
+    use rand::{SeedableRng, RngCore};
 
     use super::*;
     use crate::{utils::error::Result, structs::lsm::tests::check_file};
@@ -182,44 +182,88 @@ mod tests {
         assert_eq!(table.id(), TableId::new(test_dir));
 
         const TEST_SIZE: u64 = 600;
-        const DATA_SIZE: usize = 234;
+        const DATA_SIZE: usize = 223;
+        const RANDOM_TESTS: usize = 100;
+
+        debug!("{:=^80}", " Init Test Set ");
 
         for i in 0..TEST_SIZE {
             // random with seed i
-            // let mut rng = rand::rngs::StdRng::seed_from_u64(i);
-            // let mut data = vec![0; DATA_SIZE];
-            // rng.fill_bytes(&mut data);
-            let data = vec![(i % 57 + 65) as u8; DATA_SIZE];
+            let mut data = vec![(i % 57 + 65) as u8; 64];
 
+            let mut rng = rand::rngs::StdRng::seed_from_u64(i);
+            let mut rnd_data = vec![0; DATA_SIZE];
+            rng.fill_bytes(&mut rnd_data);
+
+            data.extend_from_slice(&rnd_data);
             table.set(i, data).await;
-            tokio::time::sleep(std::time::Duration::from_millis(1)).await;
         }
 
-        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+        for i in (0..TEST_SIZE).step_by(5) {
+            table.delete(i).await;
+        }
+
+        tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+
         // check files
+        debug!("{:=^80}", " Check Files ");
 
         for table in table.manifest.read().await.table_files() {
             check_file(&table).await?;
         }
 
-        for i in (5..TEST_SIZE).step_by(23) {
-            // random with seed i
-            // let mut rng = rand::rngs::StdRng::seed_from_u64(i);
-            // let mut data = vec![0; DATA_SIZE];
-            // rng.fill_bytes(&mut data);
-            let data = vec![(i % 57 + 65) as u8; DATA_SIZE];
+        debug!("{:=^80}", " Sequential Read Test ");
 
+        for i in (5..TEST_SIZE).step_by(13) {
+            // random with seed i
             if let DataStore::Value(v) = table.get(i).await? {
+                let mut data = vec![(i % 57 + 65) as u8; 64];
+
+                let mut rng = rand::rngs::StdRng::seed_from_u64(i);
+                let mut rnd_data = vec![0; DATA_SIZE];
+                rng.fill_bytes(&mut rnd_data);
+
+                data.extend_from_slice(&rnd_data);
+
                 assert_eq!(v.as_ref(), &data);
             } else {
-                panic!("Value not found");
+                warn!("Not found: {}", i);
             }
         }
 
+        // test for random key reading
+        debug!("{:=^80}", " Random Read Test ");
+
+        for _ in 0..RANDOM_TESTS {
+            let mut rng = rand::rngs::StdRng::seed_from_u64(rand::random());
+            let key = rng.next_u64() % TEST_SIZE;
+
+            if key % 5 == 0 {
+                assert_eq!(table.get(key).await?, DataStore::Deleted);
+            } else {
+                if let DataStore::Value(v) = table.get(key).await? {
+                    let mut data = vec![(key % 57 + 65) as u8; 64];
+
+                    let mut rng = rand::rngs::StdRng::seed_from_u64(key);
+                    let mut rnd_data = vec![0; DATA_SIZE];
+                    rng.fill_bytes(&mut rnd_data);
+
+                    data.extend_from_slice(&rnd_data);
+
+                    assert_eq!(v.as_ref(), &data);
+                } else {
+                    warn!("Not found: {}", key);
+                }
+            }
+        }
+
+        debug!("{:=^80}", " Delete Test ");
+
         table.delete(43).await;
         assert_eq!(table.get(43).await?, DataStore::Deleted);
-        assert_eq!(table.get(512).await?, DataStore::NotFound);
+        assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
 
+        debug!("{:=^80}", " All Test Passed ");
         Ok(())
     }
 }

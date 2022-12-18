@@ -42,7 +42,12 @@ impl SSTable {
     ///
     /// # Note
     /// should only be called in L0 level
-    pub async fn archive(&self, data: Vec<KvStore>) -> Result<()> {
+    pub async fn archive(&self, data: &mut Vec<KvStore>) -> Result<()> {
+        data.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let min_key = data.first().unwrap().0.clone();
+        let max_key = data.last().unwrap().0.clone();
+
         let entries_count = data.len() as u32;
         let mut raw_hasher = crc32fast::Hasher::new();
 
@@ -65,12 +70,13 @@ impl SSTable {
         let compressed_checksum = compressed_hasher.finalize();
 
         debug!(
-            "Encoded ({}/{}) bytes, {} entries, with checksum ({:08x}/{:08x})",
+            "Encoded ({}/{}) bytes, {} entries, with checksum ({:08x}/{:08x}), key range: [{}, {}]",
             bytes_read,
             bytes.len(),
             entries_count,
             raw_checksum,
-            compressed_checksum
+            compressed_checksum,
+            min_key, max_key
         );
 
         let io = self.iter.lock().await.clone_io().await?;
@@ -94,7 +100,7 @@ impl SSTable {
 impl AsyncKvStoreRead for SSTable {
     async fn get(&self, key: Key) -> Result<DataStore> {
         let mut iter = self.iter.lock().await;
-        iter.init_iter().await.unwrap();
+        iter.init_iter_for_key(key).await?;
 
         while let Some(kvstore) = iter.next().await? {
             if kvstore.0 == key {

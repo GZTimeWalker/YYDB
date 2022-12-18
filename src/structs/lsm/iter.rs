@@ -18,7 +18,8 @@ const HEADER_SIZE: u64 = 16;
 pub struct SSTableIter {
     io: IOHandler,
     entries_count: u32,
-    entrie_cur: u32,
+    entry_cur: u32,
+    last_entry_key: Option<Key>,
     bytes_read: usize,
     hasher: Option<Hasher>,
     buf: VecDeque<u8>,
@@ -32,8 +33,9 @@ impl SSTableIter {
         let mut iter = Self {
             io,
             entries_count: 0,
-            entrie_cur: 0,
+            entry_cur: 0,
             raw_checksum: 0,
+            last_entry_key: None,
             compressed_checksum: 0,
             bytes_read: 0,
             hasher: None,
@@ -69,19 +71,28 @@ impl SSTableIter {
         Ok(())
     }
 
-    pub async fn init_iter(&mut self) -> Result<()> {
-        if let Some(reader) = self.reader.as_mut() {
-            reader.get_mut().get_mut().seek(SeekFrom::Start(HEADER_SIZE)).await?;
-            return Ok(());
+    pub async fn init_iter_for_key(&mut self, key: Key) -> Result<()> {
+
+        if let Some(last_key) = self.last_entry_key {
+            if last_key <= key {
+                trace!("Iter for further key: [{}]", key);
+                return Ok(());
+            }
         }
+
+        trace!("Init Iter for key   : [{}]: {:?}", key, self.io.file_path);
+
+        self.entry_cur = 0;
+        self.hasher.replace(Hasher::new());
+        self.last_entry_key = None;
+        self.bytes_read = 0;
+        self.buf.clear();
 
         let mut file = File::open(self.io.file_path.as_ref()).await?;
         file.seek(SeekFrom::Start(HEADER_SIZE)).await?;
         self.reader
             .replace(CompressionDecoder::new(BufReader::new(file)));
-        self.entrie_cur = 0;
 
-        self.hasher.replace(Hasher::new());
 
         Ok(())
     }
@@ -95,22 +106,26 @@ impl AsyncIterator<KvStore> for SSTableIter {
     type NextFuture<'a> = impl Future<Output = Result<Option<KvStore>>> + 'a;
 
     fn next(&mut self) -> Self::NextFuture<'_> {
-        async move {
-            if self.entrie_cur >= self.entries_count {
+        async {
+            if self.entry_cur >= self.entries_count {
                 debug!(
                     "Decoded {} bytes with checksum {:08x}",
                     self.bytes_read,
                     self.raw_checksum
                 );
-                let hash = self.hasher.take().unwrap().finalize();
-                if self.raw_checksum != hash {
-                    error!(
-                        "Checksum mismatch in file {}, expected {:08x}, got {:08x}",
-                        self.io.file_path.display(),
-                        self.raw_checksum,
-                        hash
-                    );
-                    panic!();
+                if let Some(hasher) = self.hasher.take() {
+                    let hash = hasher.finalize();
+                    if self.raw_checksum != hash {
+                        error!(
+                            "Checksum mismatch in file {}, expected {:08x}, got {:08x}",
+                            self.io.file_path.display(),
+                            self.raw_checksum,
+                            hash
+                        );
+                        panic!();
+                    }
+                } else {
+                    warn!("No hasher found for file \"{}\"", self.io.file_path.display());
                 }
             }
 
@@ -135,7 +150,7 @@ impl AsyncIterator<KvStore> for SSTableIter {
                     "Error decoding data : {:#?} in file {}, {}",
                     err,
                     self.io.file_path.display(),
-                    hex_view(&slice).unwrap()
+                    hex_view(&slice).or_else(|_| Result::Ok("< cannot format >".to_string())).unwrap()
                 );
                 err
             })?;
@@ -147,16 +162,9 @@ impl AsyncIterator<KvStore> for SSTableIter {
                 hex_view(&slice[..offset])?
             );
 
-            trace!("Remaining data      : {}", hex_view(&slice[offset..])?);
-
-
-            #[cfg(test)]
-            if let DataStore::Value(value) = &data_store.1 {
-                trace!("SSTableIter: {}", hex_view(&value.as_ref())?);
-            }
-
-            self.entrie_cur += 1;
+            self.entry_cur += 1;
             self.buf.drain(..offset);
+            self.last_entry_key.replace(data_store.0.clone());
 
             Ok(Some(data_store))
         }
