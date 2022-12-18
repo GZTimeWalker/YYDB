@@ -241,7 +241,6 @@ int ha_yydb::open(const char* name, int, uint, const dd::Table*) {
     DBUG_TRACE;
 
     this->table_id = yydb::ha_yydb_open_table(name);
-    this->table_id = 1;
 
     if(!(share = get_share())) return 1;
     thr_lock_data_init(&share->lock, &lock, nullptr);

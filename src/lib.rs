@@ -22,7 +22,7 @@ pub fn rust_init() {
     utils::logger::init();
     core::runtime::init();
 
-    info!("YYDB Initialized.");
+    info!("YYDB Version: {} Initialized.", env!("CARGO_PKG_VERSION"));
 }
 
 pub fn rust_deinit() {

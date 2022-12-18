@@ -98,7 +98,7 @@ impl Table {
                 } else if self.deleted.read().await.as_ref().unwrap().contains(&kvstore.0) {
                     continue;
                 }
-
+                
                 return Ok(Some(kvstore));
             }
         }
