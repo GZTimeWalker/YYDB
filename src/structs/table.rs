@@ -203,6 +203,7 @@ mod tests {
         std::fs::remove_dir_all(test_dir).ok();
         std::fs::create_dir_all(test_dir).unwrap();
 
+        let start = std::time::Instant::now();
         let table = Table::open(test_dir.to_string()).await?;
 
         assert_eq!(table.name(), test_dir);
@@ -210,13 +211,14 @@ mod tests {
 
         const TEST_SIZE: u64 = 666;
         const DATA_SIZE: usize = 666;
-        const RANDOM_TESTS: usize = 211;
+        const NUMBER_TESTS: usize = 233;
+        const RANDOM_TESTS: usize = 50;
 
         debug!("{:=^80}", " Init Test Set ");
 
         for i in 0..TEST_SIZE {
             // random with seed i
-            let mut data = vec![(i % 57 + 65) as u8; 64];
+            let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
 
             let mut rng = rand::rngs::StdRng::seed_from_u64(i);
             let mut rnd_data = vec![0; DATA_SIZE];
@@ -230,8 +232,12 @@ mod tests {
             table.delete(i).await;
         }
 
+        debug!("{:=^80}", format!(" Init Test Set Done ({:?}) ", start.elapsed()));
+
         debug!(">>> Waiting for flush...");
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+
+        let start = std::time::Instant::now();
 
         // check files
         debug!("{:=^80}", " Check Files ");
@@ -246,7 +252,7 @@ mod tests {
             // random with seed i
             match table.get(i).await? {
                 DataStore::Value(v) => {
-                    let mut data = vec![(i % 57 + 65) as u8; 64];
+                    let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
 
                     let mut rng = rand::rngs::StdRng::seed_from_u64(i);
                     let mut rnd_data = vec![0; DATA_SIZE];
@@ -277,7 +283,7 @@ mod tests {
                 assert_eq!(table.get(key).await?, DataStore::Deleted);
             } else {
                 if let DataStore::Value(v) = table.get(key).await? {
-                    let mut data = vec![(key % 57 + 65) as u8; 64];
+                    let mut data = vec![(key % 57 + 65) as u8; NUMBER_TESTS];
 
                     let mut rng = rand::rngs::StdRng::seed_from_u64(key);
                     let mut rnd_data = vec![0; DATA_SIZE];
@@ -304,7 +310,7 @@ mod tests {
 
         let mut count = 0;
         while let Some(next) = table.next().await? {
-            trace!("Get next: {:?}", next);
+            trace!("Got next item: [{}] -> [{}]", next.0, next.1);
             count += 1;
         }
 
@@ -312,7 +318,7 @@ mod tests {
 
         debug!("Get {} items in total", count);
 
-        debug!("{:=^80}", " All Test Passed ");
+        debug!("{:=^80}", format!(" All Test Passed ({:?}) ", start.elapsed()));
         Ok(())
     }
 }
