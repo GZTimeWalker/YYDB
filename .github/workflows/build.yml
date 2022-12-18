@@ -51,7 +51,7 @@ jobs:
         rustup update
 
     - name: Run Tests
-      run: cargo test
+      run: cargo test --release
       env:
         MYSQL_SOURCE_DIR: /home/runner/mysql
 
