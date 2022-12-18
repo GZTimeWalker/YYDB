@@ -20,8 +20,8 @@ lazy_static! {
 pub(crate) fn init() {
     // an error will be returned if the logger was
     // already initialized. this situation is expected
-    // when we reinstall the plugin.
-    log::set_logger(&*LOGGER).ok(); 
+    // when we reinstall the plugin. 
+    log::set_logger(&*LOGGER).ok();
 
     log::set_max_level(match option_env!("LOG_LEVEL") {
         Some("error") => LevelFilter::Error,

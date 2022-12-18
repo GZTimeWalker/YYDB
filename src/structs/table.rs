@@ -227,7 +227,7 @@ mod tests {
 
                 assert_eq!(v.as_ref(), &data);
             } else {
-                warn!("Not found: {}", i);
+                assert_eq!(i % 5, 0);
             }
         }
 
@@ -252,7 +252,7 @@ mod tests {
 
                     assert_eq!(v.as_ref(), &data);
                 } else {
-                    warn!("Not found: {}", key);
+                    warn!("Value Not found: {}", key);
                 }
             }
         }

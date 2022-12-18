@@ -122,7 +122,6 @@ impl AsyncIterator<KvStore> for SSTableIter {
                             self.raw_checksum,
                             hash
                         );
-                        panic!();
                     }
                 } else {
                     warn!("No hasher found for file \"{}\"", self.io.file_path.display());
@@ -155,7 +154,7 @@ impl AsyncIterator<KvStore> for SSTableIter {
                 err
             })?;
 
-            debug!(
+            trace!(
                 "Decoded data        : [{}] -> [{}], {}",
                 data_store.0,
                 data_store.1,
