@@ -51,5 +51,10 @@ namespace yydb {
     int ha_yydb_rnd_next(uint64_t table_id, u_char* buf, uint length) {
         return rnd_next(table_id, (uint8_t*)buf, length);
     }
+
+    void ha_yydb_delete_table(const char * name){
+        rust::Str name_str(name);
+        return delete_table(name_str);
+    }
     /* End of table */
 }

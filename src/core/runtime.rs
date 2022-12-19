@@ -3,7 +3,13 @@ use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
-use crate::structs::table::{Table, TableId};
+use crate::{
+    structs::{
+        table::{Table, TableId},
+        SizedOnDisk,
+    },
+    utils::human_read_size,
+};
 
 lazy_static! {
     static ref RUNTIME: Runtime = {
@@ -33,6 +39,14 @@ pub struct Runtime {
 pub fn init() {
     Runtime::global();
     info!("Runtime Initialized.");
+}
+
+pub fn deinit() {
+    run_async!{
+        Runtime::global().close_all_tables().await;
+    }
+
+    info!("Runtime Deinitialized.");
 }
 
 /// Runs a future to completion on the global runtime.
@@ -80,37 +94,62 @@ where
     Runtime::global().tokio_rt.spawn(future)
 }
 
-/// Open a table by name.
-#[inline(always)]
-pub async fn open_table(table_name: String) -> Option<TableId> {
-    if let Ok(table) = Table::open(table_name).await {
-        let id = table.id();
-        Runtime::global()
-            .tables
-            .write()
-            .await
-            .insert(id, Arc::new(table));
-        Some(id)
-    } else {
-        None
-    }
-}
-
-/// Get a table by id.
-#[inline(always)]
-pub async fn get_table(id: &TableId) -> Option<Arc<Table>> {
-    Runtime::global().tables.read().await.get(id).cloned()
-}
-
-/// Close a table by id.
-#[inline(always)]
-pub async fn close_table(id: &TableId) -> Option<Arc<Table>> {
-    Runtime::global().tables.write().await.remove(id)
-}
-
 impl Runtime {
     pub fn global() -> &'static Runtime {
         &RUNTIME
+    }
+
+    #[inline]
+    pub async fn contains_table(&self, id: &TableId) -> bool {
+        self.tables.read().await.contains_key(id)
+    }
+
+    /// Open a table by name
+    pub async fn open_table(&self, table_name: String) -> Option<TableId> {
+        let id = TableId::new(&table_name);
+
+        if self.tables.read().await.contains_key(&id) {
+            Some(id)
+        } else {
+            if let Ok(table) = Table::open(table_name).await {
+                info!(
+                    "Table opened        : {}",
+                    human_read_size(table.size_on_disk().await.unwrap())
+                );
+                let id = table.id();
+                self.tables
+                    .write()
+                    .await
+                    .insert(id, Arc::new(table));
+                Some(id)
+            } else {
+                None
+            }
+        }
+    }
+
+    /// Get a table by id.
+    #[inline(always)]
+    pub async fn get_table(&self, id: &TableId) -> Option<Arc<Table>> {
+        self.tables.read().await.get(id).cloned()
+    }
+
+    /// Close a table by id.
+    #[inline(always)]
+    pub async fn close_table(&self, id: &TableId) -> Option<Arc<Table>> {
+        self.tables.write().await.remove(id)
+    }
+
+    /// insert a table by id.
+    #[inline(always)]
+    pub async fn insert_table(&self, id: TableId, table: Arc<Table>) {
+        self.tables.write().await.insert(id, table);
+    }
+
+    /// Close all tables.
+    #[inline(always)]
+    pub async fn close_all_tables(&self) {
+        self.tables.write().await.clear();
     }
 }
 

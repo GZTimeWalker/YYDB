@@ -9,4 +9,5 @@ fn main() {
     println!("cargo:rerun-if-changed=src/bridge.rs");
     println!("cargo:rerun-if-changed=src/bridge.cc");
     println!("cargo:rerun-if-changed=include/bridge.h");
+    println!("cargo:rerun-if-env-changed=LOG_LEVEL")
 }

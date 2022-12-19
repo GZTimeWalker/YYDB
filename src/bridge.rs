@@ -43,6 +43,9 @@ pub mod ffi {
 
         // put hex data to log
         pub unsafe fn put_hex(data: *const u8, len: u32);
+
+        // delete a table by name.
+        pub fn delete_table(table_name: &str);
     }
 
     // C++ types and signatures exposed to Rust.

@@ -239,7 +239,7 @@ static bool yydb_is_supported_system_table(const char* db,
 
 int ha_yydb::open(const char* name, int, uint, const dd::Table*) {
     DBUG_TRACE;
-
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql opening table       ");
     this->table_id = yydb::ha_yydb_open_table(name);
 
     if(!(share = get_share())) return 1;
@@ -266,6 +266,7 @@ int ha_yydb::open(const char* name, int, uint, const dd::Table*) {
 int ha_yydb::close(void) {
     DBUG_TRACE;
 
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql closing table        ");
     if(!this->table_id) {
         yydb::ha_yydb_close_table(this->table_id);
     }
@@ -317,6 +318,7 @@ std::uint64_t ha_yydb::get_row_pk() {
 
 int ha_yydb::write_row(uchar* data) {
     DBUG_TRACE;
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql writing row        ");
 
     ha_statistic_increment(&System_status_var::ha_write_count);
 
@@ -352,6 +354,7 @@ int ha_yydb::write_row(uchar* data) {
 */
 int ha_yydb::update_row(const uchar* old_data, uchar* new_data) {
     DBUG_TRACE;
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql updateing row        ");
 
     ha_statistic_increment(&System_status_var::ha_update_count);
 
@@ -384,6 +387,7 @@ int ha_yydb::update_row(const uchar* old_data, uchar* new_data) {
 
 int ha_yydb::delete_row(const uchar*) {
     DBUG_TRACE;
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql deleting row        ");
     std::uint64_t row_pk = get_row_pk();
     yydb::delete_row(this->table_id, row_pk);
     return 0;
@@ -478,6 +482,7 @@ int ha_yydb::index_last(uchar*) {
 */
 int ha_yydb::rnd_init(bool) {
     DBUG_TRACE;
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql init to read        ");
     ref_length = sizeof(long long);
     yydb::rnd_init(this->table_id);
     return 0;
@@ -485,6 +490,7 @@ int ha_yydb::rnd_init(bool) {
 
 int ha_yydb::rnd_end() {
     DBUG_TRACE;
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql read end        ");
     yydb::rnd_end(this->table_id);
     return 0;
 }
@@ -506,6 +512,7 @@ int ha_yydb::rnd_end() {
 */
 int ha_yydb::rnd_next(uchar* buf) {
     DBUG_TRACE;
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql reading next        ");
     ha_statistic_increment(&System_status_var::ha_read_rnd_next_count);
     if(yydb::ha_yydb_rnd_next(this->table_id, buf, table->s->rec_buff_length)) {
         return 0;
@@ -559,6 +566,7 @@ void ha_yydb::position(const uchar*) {
 */
 int ha_yydb::rnd_pos(uchar*, uchar*) {
     DBUG_TRACE;
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql reading by pos        ");
     ha_statistic_increment(&System_status_var::ha_write_count);
     // auto current_position = (off_t)my_get_ptr(pos, ref_length);
     // yydb::ha_yydb_read_row(this->table_id,buf,current_position,-1);
@@ -646,6 +654,7 @@ int ha_yydb::extra(enum ha_extra_function) {
 */
 int ha_yydb::delete_all_rows() {
     DBUG_TRACE;
+    __mysql_log(SYSTEM_LEVEL, "[Inf] Mysql deleting all rows        ");
     return HA_ERR_WRONG_COMMAND;
 }
 
@@ -734,9 +743,11 @@ THR_LOCK_DATA** ha_yydb::store_lock(THD*, THR_LOCK_DATA** to,
   @see
   delete_table and ha_create_table() in handler.cc
 */
-int ha_yydb::delete_table(const char*, const dd::Table*) {
+int ha_yydb::delete_table(const char* name, const dd::Table*) {
     DBUG_TRACE;
     /* This is not implemented but we want someone to be able that it works. */
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql deleting table        ");
+    yydb::ha_yydb_delete_table(name);
     return 0;
 }
 
@@ -757,6 +768,7 @@ int ha_yydb::delete_table(const char*, const dd::Table*) {
 int ha_yydb::rename_table(const char*, const char*, const dd::Table*,
     dd::Table*) {
     DBUG_TRACE;
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql renaming table        ");
     return HA_ERR_WRONG_COMMAND;
 }
 
@@ -805,6 +817,8 @@ static MYSQL_THDVAR_UINT(create_count_thdvar, 0, nullptr, nullptr, nullptr, 0,
 
 int ha_yydb::create(const char* name, TABLE*, HA_CREATE_INFO*, dd::Table*) {
     DBUG_TRACE;
+
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql creating table        ");
 
     this->table_id = yydb::ha_yydb_open_table(name);
     this->table_id = 1;

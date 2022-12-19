@@ -18,6 +18,7 @@ mod structs;
 
 /// Init the rust part of the library, should be called
 /// from C++ code by Mysql plugin init function.
+#[inline]
 pub fn rust_init() {
     utils::logger::init();
     core::runtime::init();
@@ -25,7 +26,9 @@ pub fn rust_init() {
     info!("YYDB Version: {} Initialized.", env!("CARGO_PKG_VERSION"));
 }
 
+#[inline]
 pub fn rust_deinit() {
-    // do something
+    core::runtime::deinit();
+
     info!("YYDB Deinitialized.");
 }

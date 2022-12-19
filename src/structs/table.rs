@@ -45,7 +45,7 @@ pub struct Table {
 impl Table {
     pub async fn open(table_name: String) -> Result<Table> {
         let table_id = TableId::new(&table_name);
-        info!("Open table          : \"{}\"@{:x}", table_name, table_id);
+        debug!("Open table          : \"{}\"@{:x}", table_name, table_id);
 
         let table_name = &table_name;
         std::fs::create_dir_all(table_name)?;
@@ -98,7 +98,7 @@ impl Table {
                 } else if self.deleted.read().await.as_ref().unwrap().contains(&kvstore.0) {
                     continue;
                 }
-                
+
                 return Ok(Some(kvstore));
             }
         }

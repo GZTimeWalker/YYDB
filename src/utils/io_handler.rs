@@ -26,7 +26,7 @@ impl IOHandler {
             .open(&path)
             .await?;
 
-        trace!("Opening file: {:?}", path);
+        trace!("Opening file        : {:?}", path);
 
         Ok(Self {
             file_path: Arc::new(path.clone()),

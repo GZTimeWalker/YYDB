@@ -62,5 +62,7 @@ namespace yydb {
     extern void rnd_end(uint64_t table_id);
 
     extern int ha_yydb_rnd_next(uint64_t table_id, u_char * buf, uint length);
+
+    extern void ha_yydb_delete_table(const char* name);
     /* End of table */
 }

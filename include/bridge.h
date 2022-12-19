@@ -44,6 +44,8 @@ namespace yydb {
 
     int ha_yydb_rnd_next(uint64_t table_id, u_char * buf, uint length);
     /* End of table */
-    
+
     void ha_yydb_put_hex(const u_char* data, uint length);
+
+    void ha_yydb_delete_table(const char * name);
 }
