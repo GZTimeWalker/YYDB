@@ -34,7 +34,7 @@ pub(crate) fn init() {
         Some("debug") => LevelFilter::Debug,
         Some("trace") => LevelFilter::Trace,
         _ => LevelFilter::Info,
-    }); 
+    });
 
     info!("Current log level: {}", log::max_level());
     info!("Logger Initialized.");

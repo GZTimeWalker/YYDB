@@ -264,11 +264,11 @@ mod tests {
 
                     assert_eq!(v.as_ref(), &data);
                 }
-                _ => {
+                x => {
                     if i % 5 == 0 {
                         continue;
                     } else {
-                        panic!("Unexpected value for key {}", i);
+                        panic!("Unexpected value for key {}: {:?}", i, x);
                     }
                 }
             }

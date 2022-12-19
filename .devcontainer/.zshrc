@@ -260,3 +260,7 @@ export LC_ALL=en_US.UTF-8
 export MYSQL_BASE_DIR=/usr/local/mysql
 export PATH=$PATH:$MYSQL_BASE_DIR/bin
 export MYSQL_SOURCE_DIR=/usr/local/src/mysql-8.0
+
+export RUSTUP_HOME=/usr/local/rustup
+export CARGO_HOME=/usr/local/cargo
+export PATH=$PATH:$CARGO_HOME/bin

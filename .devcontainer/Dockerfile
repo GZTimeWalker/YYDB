@@ -15,8 +15,7 @@ ENV RUSTUP_HOME=/usr/local/rustup \
     PATH=/usr/local/cargo/bin:$PATH
 
 RUN set -eux; \
-    url="https://sh.rustup.rs"; \
-    curl "$url" | sh -s -- -y --no-modify-path --profile minimal --default-toolchain nightly; \
+    curl "https://sh.rustup.rs" | sh -s -- -y --no-modify-path --profile minimal --default-toolchain nightly; \
     chmod -R a+w $RUSTUP_HOME $CARGO_HOME; \
     rustup component add rustfmt clippy; \
     rustup component add rust-src --toolchain nightly; \

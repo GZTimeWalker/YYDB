@@ -354,7 +354,7 @@ int ha_yydb::write_row(uchar* data) {
 */
 int ha_yydb::update_row(const uchar* old_data, uchar* new_data) {
     DBUG_TRACE;
-    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql updateing row        ");
+    //__mysql_log(SYSTEM_LEVEL, "[Inf] Mysql updating row        ");
 
     ha_statistic_increment(&System_status_var::ha_update_count);
 
