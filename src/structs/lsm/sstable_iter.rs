@@ -114,8 +114,12 @@ impl AsyncIterator<KvStore> for SSTableIter {
         async {
             if self.entry_cur >= self.entries_count {
                 debug!(
-                    "Decoded {} bytes with checksum {:08x} from file {}",
-                    self.bytes_read, self.raw_checksum, self.io.file_path.display()
+                    "Decoded {} bytes ({}/{}) with checksum {:08x} from file {}",
+                    self.bytes_read,
+                    self.entry_cur,
+                    self.entries_count,
+                    self.raw_checksum,
+                    self.io.file_path.display()
                 );
                 if let Some(hasher) = self.hasher.take() {
                     let hash = hasher.finalize();
