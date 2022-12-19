@@ -84,5 +84,5 @@ pub fn human_read_size(size: u64) -> String {
         size /= 1024.0;
         unit = "GiB";
     }
-    format!("{:.2}{}", size, unit)
+    format!("{size:.2}{unit}")
 }

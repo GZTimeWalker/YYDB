@@ -42,7 +42,7 @@ pub fn init() {
 }
 
 pub fn deinit() {
-    run_async!{
+    run_async! {
         Runtime::global().close_all_tables().await;
     }
 
@@ -110,21 +110,16 @@ impl Runtime {
 
         if self.tables.read().await.contains_key(&id) {
             Some(id)
+        } else if let Ok(table) = Table::open(table_name).await {
+            info!(
+                "Table opened        : {}",
+                human_read_size(table.size_on_disk().await.unwrap())
+            );
+            let id = table.id();
+            self.tables.write().await.insert(id, Arc::new(table));
+            Some(id)
         } else {
-            if let Ok(table) = Table::open(table_name).await {
-                info!(
-                    "Table opened        : {}",
-                    human_read_size(table.size_on_disk().await.unwrap())
-                );
-                let id = table.id();
-                self.tables
-                    .write()
-                    .await
-                    .insert(id, Arc::new(table));
-                Some(id)
-            } else {
-                None
-            }
+            None
         }
     }
 

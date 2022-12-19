@@ -38,7 +38,7 @@ impl AsyncIterator<KvStore> for LsmTreeIterator {
                     Some(table) => {
                         table.init_iter().await?;
                         self.cur = Some(table);
-                    },
+                    }
                     None => break,
                 }
             }

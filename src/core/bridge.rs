@@ -1,4 +1,7 @@
-use crate::{structs::{kvstore::*, table::TableId}, utils::DataStore};
+use crate::{
+    structs::{kvstore::*, table::TableId},
+    utils::DataStore,
+};
 
 #[inline(always)]
 pub fn open_table(table_name: &str) -> u64 {
@@ -24,7 +27,10 @@ pub fn close_table(id: u64) {
 /// # Safety
 /// mysql will pass a pointer to a buffer, and we need to get data from it
 pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32) {
-    info!("Inserting row       : [{:3<}]<{}> @{:016x}", key, len, table_id);
+    info!(
+        "Inserting row       : [{:3<}]<{}> @{:016x}",
+        key, len, table_id
+    );
 
     let data = std::slice::from_raw_parts(data, len as usize);
 
@@ -44,7 +50,10 @@ pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32) {
 /// # Safety
 /// mysql will pass a pointer to a buffer, and we need to get data from it
 pub unsafe fn update_row(table_id: u64, key: u64, _data: *const u8, new_data: *const u8, len: u32) {
-    info!("Updating row        : [{:3<}]<{}> @{:016x}", key, len, table_id);
+    info!(
+        "Updating row        : [{:3<}]<{}> @{:016x}",
+        key, len, table_id
+    );
 
     let new_data = std::slice::from_raw_parts(new_data, len as usize);
 

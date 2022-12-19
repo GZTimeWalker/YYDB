@@ -7,7 +7,8 @@ use tokio::sync::RwLock;
 
 use super::{
     lsm::{SSTable, SSTableLevel},
-    TABLE_COMPACT_THRESHOLD, manifest::Manifest,
+    manifest::Manifest,
+    TABLE_COMPACT_THRESHOLD,
 };
 
 #[macro_export]
@@ -41,7 +42,7 @@ impl SSTableTracker {
     pub fn new(manifest: Arc<RwLock<Manifest>>) -> Self {
         Self {
             inner: HashMap::new(),
-            manifest
+            manifest,
         }
     }
 
@@ -76,7 +77,11 @@ impl SSTableTracker {
 
     pub async fn compact(&mut self) {
         for (level, tables) in self.get_compactable_tables().await {
-            debug!("Compacting tables at level {} with {:#?}", level, tables.iter().map(|t| t.meta().key).collect::<Vec<_>>());
+            debug!(
+                "Compacting tables at level {} with {:#?}",
+                level,
+                tables.iter().map(|t| t.meta().key).collect::<Vec<_>>()
+            );
         }
     }
 }

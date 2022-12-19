@@ -6,8 +6,8 @@ use super::manifest::Manifest;
 use super::mem::MemTable;
 use super::{kvstore::*, MemTableIterator};
 use crate::utils::*;
-use std::collections::HashSet;
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashSet;
 use std::fmt::{Formatter, LowerHex};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
@@ -39,7 +39,7 @@ pub struct Table {
     // iterators
     memtable_iter: RwLock<Option<MemTableIterator>>,
     lsm_iter: RwLock<Option<LsmTreeIterator>>,
-    deleted: RwLock<Option<HashSet<Key>>>
+    deleted: RwLock<Option<HashSet<Key>>>,
 }
 
 impl Table {
@@ -89,30 +89,50 @@ impl Table {
         self.deleted.write().await.take();
     }
 
+    #[inline]
+    async fn deleted_insert(&self, key: Key) {
+        self.deleted.write().await.as_mut().unwrap().insert(key);
+    }
+
+    #[inline]
+    async fn deleted_contains(&self, key: &Key) -> bool {
+        self.deleted.read().await.as_ref().unwrap().contains(key)
+    }
+
     pub async fn next(&self) -> Result<Option<KvStore>> {
         if let Some(memtable_iter) = self.memtable_iter.write().await.as_mut() {
-            while let Some(kvstore) = memtable_iter.next() {
-                if let DataStore::Deleted = kvstore.1 {
-                    self.deleted.write().await.as_mut().unwrap().insert(kvstore.0);
-                    continue;
-                } else if self.deleted.read().await.as_ref().unwrap().contains(&kvstore.0) {
-                    continue;
+            for kvstore in memtable_iter.by_ref() {
+                match kvstore {
+                    (key, DataStore::Value(value)) => {
+                        if self.deleted_contains(&key).await {
+                            continue;
+                        } else {
+                            return Ok(Some((key, DataStore::Value(value))));
+                        }
+                    }
+                    (key, _) => {
+                        self.deleted_insert(key).await;
+                        continue;
+                    }
                 }
-
-                return Ok(Some(kvstore));
             }
         }
 
         if let Some(lsm_iter) = self.lsm_iter.write().await.as_mut() {
             while let Some(kvstore) = lsm_iter.next().await? {
-                if let DataStore::Deleted = kvstore.1 {
-                    self.deleted.write().await.as_mut().unwrap().insert(kvstore.0);
-                    continue;
-                } else if self.deleted.read().await.as_ref().unwrap().contains(&kvstore.0) {
-                    continue;
+                match kvstore {
+                    (key, DataStore::Value(value)) => {
+                        if self.deleted_contains(&key).await {
+                            continue;
+                        } else {
+                            return Ok(Some((key, DataStore::Value(value))));
+                        }
+                    }
+                    (key, _) => {
+                        self.deleted_insert(key).await;
+                        continue;
+                    }
                 }
-
-                return Ok(Some(kvstore));
             }
         }
 
@@ -209,7 +229,7 @@ mod tests {
         assert_eq!(table.name(), test_dir);
         assert_eq!(table.id(), TableId::new(test_dir));
 
-        const TEST_SIZE: u64 = 600;
+        const TEST_SIZE: u64 = 800;
         const RANDOM_TEST_SIZE: usize = 1000;
 
         const DATA_SIZE: usize = 240;
@@ -233,7 +253,10 @@ mod tests {
             table.delete(i).await;
         }
 
-        debug!("{:=^80}", format!(" Init Test Set Done ({:?}) ", start.elapsed()));
+        debug!(
+            "{:=^80}",
+            format!(" Init Test Set Done ({:?}) ", start.elapsed())
+        );
 
         debug!(">>> Waiting for flush...");
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
@@ -246,7 +269,10 @@ mod tests {
             check_file(&table).await?;
         }
 
-        debug!("{:=^80}", format!(" Check Files Done ({:?}) ", test_start.elapsed()));
+        debug!(
+            "{:=^80}",
+            format!(" Check Files Done ({:?}) ", test_start.elapsed())
+        );
 
         debug!("{:=^80}", " Sequential Read Test ");
         let start = std::time::Instant::now();
@@ -275,7 +301,10 @@ mod tests {
             }
         }
 
-        debug!("{:=^80}", format!(" Sequential Read Test Done ({:?}) ", start.elapsed()));
+        debug!(
+            "{:=^80}",
+            format!(" Sequential Read Test Done ({:?}) ", start.elapsed())
+        );
 
         // test for random key reading
         debug!("{:=^80}", " Random Read Test ");
@@ -307,7 +336,10 @@ mod tests {
             }
         }
 
-        debug!("{:=^80}", format!(" Random Read Test Done ({:?}) ", start.elapsed()));
+        debug!(
+            "{:=^80}",
+            format!(" Random Read Test Done ({:?}) ", start.elapsed())
+        );
 
         debug!("{:=^80}", " NotFound Test ");
 
@@ -326,13 +358,19 @@ mod tests {
 
         table.end_iter().await;
 
-        debug!("{:=^80}", format!(" Got {} Items ({:?}) ", count, start.elapsed()));
+        debug!(
+            "{:=^80}",
+            format!(" Got {} Items ({:?}) ", count, start.elapsed())
+        );
 
         let size_on_disk = table.size_on_disk().await?;
 
         debug!("Size on disk: {}", human_read_size(size_on_disk));
 
-        debug!("{:=^80}", format!(" All Test Passed ({:?}) ", test_start.elapsed()));
+        debug!(
+            "{:=^80}",
+            format!(" All Test Passed ({:?}) ", test_start.elapsed())
+        );
         Ok(())
     }
 }
