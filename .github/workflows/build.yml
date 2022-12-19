@@ -51,7 +51,7 @@ jobs:
         rustup update
 
     - name: Run Tests
-      run: cargo test --release --config "env.LOG_LEVEL=trace"
+      run: cargo test --release --config 'env.LOG_LEVEL = "trace"'
       env:
         MYSQL_SOURCE_DIR: /home/runner/mysql
 
