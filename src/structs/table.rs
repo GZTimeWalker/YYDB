@@ -209,10 +209,11 @@ mod tests {
         assert_eq!(table.name(), test_dir);
         assert_eq!(table.id(), TableId::new(test_dir));
 
-        const TEST_SIZE: u64 = 666;
-        const DATA_SIZE: usize = 666;
-        const NUMBER_TESTS: usize = 600;
-        const RANDOM_TESTS: usize = TEST_SIZE as usize / 2;
+        const TEST_SIZE: u64 = 600;
+        const RANDOM_TEST_SIZE: usize = 1000;
+
+        const DATA_SIZE: usize = 240;
+        const NUMBER_TESTS: usize = 200;
 
         debug!("{:=^80}", " Init Test Set ");
 
@@ -280,25 +281,28 @@ mod tests {
         debug!("{:=^80}", " Random Read Test ");
         let start = std::time::Instant::now();
 
-        for _ in 0..RANDOM_TESTS {
+        for _ in 0..RANDOM_TEST_SIZE {
             let mut rng = rand::rngs::StdRng::seed_from_u64(rand::random());
             let key = rng.next_u64() % TEST_SIZE;
 
             if key % 5 == 0 {
                 assert_eq!(table.get(key).await?, DataStore::Deleted);
             } else {
-                if let DataStore::Value(v) = table.get(key).await? {
-                    let mut data = vec![(key % 57 + 65) as u8; NUMBER_TESTS];
+                match table.get(key).await? {
+                    DataStore::Value(v) => {
+                        let mut data = vec![(key % 57 + 65) as u8; NUMBER_TESTS];
 
-                    let mut rng = rand::rngs::StdRng::seed_from_u64(key);
-                    let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
-                    rng.fill_bytes(&mut rnd_data);
+                        let mut rng = rand::rngs::StdRng::seed_from_u64(key);
+                        let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+                        rng.fill_bytes(&mut rnd_data);
 
-                    data.extend_from_slice(&rnd_data);
+                        data.extend_from_slice(&rnd_data);
 
-                    assert_eq!(v.as_ref(), &data);
-                } else {
-                    warn!("Value Not found: {}", key);
+                        assert_eq!(v.as_ref(), &data);
+                    }
+                    x => {
+                        panic!("Unexpected value for key {}: {:?}", key, x);
+                    }
                 }
             }
         }

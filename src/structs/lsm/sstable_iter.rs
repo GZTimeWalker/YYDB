@@ -73,7 +73,7 @@ impl SSTableIter {
 
     pub async fn init_iter_for_key(&mut self, key: Key) -> Result<()> {
         if let Some(last_key) = self.last_entry_key {
-            if last_key <= key {
+            if last_key < key {
                 trace!("Iter for further key: [{}]", key);
                 return Ok(());
             }
