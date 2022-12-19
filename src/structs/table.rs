@@ -251,7 +251,7 @@ mod tests {
         debug!("{:=^80}", " Sequential Read Test ");
         let start = std::time::Instant::now();
 
-        for i in (5..TEST_SIZE).step_by(13) {
+        for i in 0..TEST_SIZE {
             // random with seed i
             match table.get(i).await? {
                 DataStore::Value(v) => {

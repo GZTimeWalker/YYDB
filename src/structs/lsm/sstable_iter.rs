@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub const SSTABLE_ITER_BUF_SIZE: usize = 0x800;
-const HEADER_SIZE: u64 = 16;
+const HEADER_SIZE: u64 = 32;
 
 #[derive(Debug)]
 pub struct SSTableIter {
@@ -25,6 +25,8 @@ pub struct SSTableIter {
     buf: VecDeque<u8>,
     raw_checksum: u32,
     compressed_checksum: u32,
+    min_key: Key,
+    max_key: Key,
     reader: Option<CompressionDecoder<BufReader<File>>>,
 }
 
@@ -38,6 +40,8 @@ impl SSTableIter {
             last_entry_key: None,
             compressed_checksum: 0,
             bytes_read: 0,
+            min_key: 0,
+            max_key: 0,
             hasher: None,
             buf: VecDeque::with_capacity(data_size as usize * 2),
             reader: None,
@@ -66,6 +70,9 @@ impl SSTableIter {
         self.raw_checksum = file_io.read_u32().await?;
         self.compressed_checksum = file_io.read_u32().await?;
         self.entries_count = file_io.read_u32().await?;
+
+        self.min_key = file_io.read_u64().await?;
+        self.max_key = file_io.read_u64().await?;
 
         debug!("Recreated Iter      : {:?}", self.io.file_path);
         Ok(())
@@ -196,6 +203,9 @@ pub mod tests {
 
         let len = file.read_u32().await?;
 
+        let min_key = file.read_u64().await?;
+        let max_key = file.read_u64().await?;
+
         let mut bytes = Vec::new();
         let bytes_total = file.read_to_end(&mut bytes).await?;
 
@@ -225,8 +235,8 @@ pub mod tests {
         assert_eq!(raw_checksum, computed_raw_checksum);
 
         debug!(
-            "File \"{}\" has {} bytes, {} entries, no problems found",
-            file_name, bytes_total, len
+            "File \"{}\" has {} bytes, {} entries, key range [{}, {}]",
+            file_name, bytes_total, len, min_key, max_key
         );
 
         Ok(())

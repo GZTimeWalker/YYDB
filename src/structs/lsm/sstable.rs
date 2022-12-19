@@ -111,6 +111,8 @@ impl SSTable {
         file_io.write_u32(raw_checksum).await?;
         file_io.write_u32(compressed_checksum).await?;
         file_io.write_u32(entries_count).await?;
+        file_io.write_u64(min_key).await?;
+        file_io.write_u64(max_key).await?;
         file_io.write_all(&bytes).await?;
 
         drop(file_io); // release lock
