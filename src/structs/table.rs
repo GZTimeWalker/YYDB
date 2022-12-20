@@ -43,7 +43,7 @@ pub struct Table {
     // iterators
     memtable_iter: RwLock<Option<MemTableIterator>>,
     lsm_iter: RwLock<Option<LsmTreeIterator>>,
-    deleted: RwLock<Option<HashSet<Key>>>,
+    yielded: RwLock<Option<HashSet<Key>>>,
 }
 
 impl Table {
@@ -63,7 +63,7 @@ impl Table {
             new_table_added: Arc::new(AtomicBool::new(false)),
             memtable_iter: RwLock::new(None),
             lsm_iter: RwLock::new(None),
-            deleted: RwLock::new(None),
+            yielded: RwLock::new(None),
         })
     }
 
@@ -84,23 +84,23 @@ impl Table {
             .write()
             .await
             .replace(self.manifest.read().await.iter());
-        self.deleted.write().await.replace(HashSet::new());
+        self.yielded.write().await.replace(HashSet::new());
     }
 
     pub async fn end_iter(&self) {
         self.memtable_iter.write().await.take();
         self.lsm_iter.write().await.take();
-        self.deleted.write().await.take();
+        self.yielded.write().await.take();
     }
 
     #[inline]
-    async fn deleted_insert(&self, key: Key) {
-        self.deleted.write().await.as_mut().unwrap().insert(key);
+    async fn yielded_insert(&self, key: Key) {
+        self.yielded.write().await.as_mut().unwrap().insert(key);
     }
 
     #[inline]
-    async fn deleted_contains(&self, key: &Key) -> bool {
-        self.deleted.read().await.as_ref().unwrap().contains(key)
+    async fn yielded_contains(&self, key: &Key) -> bool {
+        self.yielded.read().await.as_ref().unwrap().contains(key)
     }
 
     #[inline]
@@ -130,13 +130,14 @@ impl Table {
         if let Some(memtable_iter) = self.memtable_iter.write().await.as_mut() {
             for kvstore in memtable_iter.by_ref() {
                 match kvstore {
-                    (key, DataStore::Value(value)) => match self.deleted_contains(&key).await {
-                        true => continue,
-                        false => return Ok(Some((key, DataStore::Value(value)))),
-                    },
+                    (key, DataStore::Value(value)) => {
+                        if !self.yielded_contains(&key).await {
+                            self.yielded_insert(key).await;
+                            return Ok(Some((key, DataStore::Value(value))));
+                        }
+                    }
                     (key, DataStore::Deleted) => {
-                        self.deleted_insert(key).await;
-                        continue;
+                        self.yielded_insert(key).await;
                     }
                     _ => unreachable!(),
                 }
@@ -146,13 +147,14 @@ impl Table {
         if let Some(lsm_iter) = self.lsm_iter.write().await.as_mut() {
             while let Some(kvstore) = lsm_iter.next().await? {
                 match kvstore {
-                    (key, DataStore::Value(value)) => match self.deleted_contains(&key).await {
-                        true => continue,
-                        false => return Ok(Some((key, DataStore::Value(value)))),
-                    },
+                    (key, DataStore::Value(value)) => {
+                        if !self.yielded_contains(&key).await {
+                            self.yielded_insert(key).await;
+                            return Ok(Some((key, DataStore::Value(value))));
+                        }
+                    }
                     (key, DataStore::Deleted) => {
-                        self.deleted_insert(key).await;
-                        continue;
+                        self.yielded_insert(key).await;
                     }
                     _ => unreachable!(),
                 }
