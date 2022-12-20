@@ -4,15 +4,14 @@ use tokio::sync::RwLock;
 use super::lsm::LsmTreeIterator;
 use super::manifest::Manifest;
 use super::mem::MemTable;
-use super::tracker::SSTableTracker;
 use super::{kvstore::*, MemTableIterator};
-// use crate::structs::tracker;
 use crate::utils::*;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
 use std::fmt::{Formatter, LowerHex};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct TableId(pub u64);
@@ -37,7 +36,9 @@ pub struct Table {
     name: String,
     memtable: MemTable,
     manifest: Arc<RwLock<Manifest>>,
-    // tracker: Arc<RwLock<SSTableTracker>>,
+
+    // new table added
+    new_table_added: Arc<AtomicBool>,
 
     // iterators
     memtable_iter: RwLock<Option<MemTableIterator>>,
@@ -52,19 +53,14 @@ impl Table {
 
         let table_name = &table_name;
         std::fs::create_dir_all(table_name)?;
-
         let manifest = Arc::new(RwLock::new(Manifest::new(table_name).await?));
-
-        let mut table_tracker = SSTableTracker::new(manifest.clone());
-
-        manifest.read().await.init_tracker(&mut table_tracker);
 
         Ok(Table {
             id: table_id,
             name: table_name.to_string(),
-            memtable: MemTable::new(table_name, Some(manifest.clone())).await?,
-            // tracker: RwLock::new(table_tracker),
-            manifest,
+            manifest: manifest.clone(),
+            memtable: MemTable::new(table_name, Some(manifest)).await?,
+            new_table_added: Arc::new(AtomicBool::new(false)),
             memtable_iter: RwLock::new(None),
             lsm_iter: RwLock::new(None),
             deleted: RwLock::new(None),
@@ -105,6 +101,24 @@ impl Table {
     #[inline]
     async fn deleted_contains(&self, key: &Key) -> bool {
         self.deleted.read().await.as_ref().unwrap().contains(key)
+    }
+
+    async fn compact(&self) {
+        let compactable_tables = self.manifest.read().await.get_compactable_tables();
+
+        for (level, tables) in compactable_tables {
+            debug!(
+                "Compacting tables at level {} with {:#?}",
+                level,
+                tables.iter().map(|t| t.meta().key).collect::<Vec<_>>()
+            );
+
+            let manifest = self.manifest.clone();
+
+            crate::core::runtime::spawn(async move {
+                super::tracker::compact_worker(level, tables, manifest).await
+            });
+        }
     }
 
     pub async fn next(&self) -> Result<Option<KvStore>> {
@@ -197,11 +211,18 @@ impl AsyncKvStoreWrite for Table {
             .write()
             .await
             .with_row_size(value.len() as u32);
-        self.memtable.set(key, value).await
+        self.memtable.set(key, value).await;
+        self.memtable.do_persist(self.new_table_added.clone()).await;
+
+        if self.new_table_added.load(Ordering::Relaxed) {
+            debug!("New table added, compacting...");
+            self.new_table_added.store(false, Ordering::Relaxed);
+            self.compact().await;
+        }
     }
 
     async fn delete(&self, key: Key) {
-        self.memtable.delete(key).await
+        self.memtable.delete(key).await;
     }
 }
 
@@ -237,15 +258,15 @@ mod tests {
         assert_eq!(table.name(), test_dir);
         assert_eq!(table.id(), TableId::new(test_dir));
 
-        const TEST_SIZE: u64 = 800;
-        const RANDOM_TEST_SIZE: usize = 1000;
+        const TEST_SIZE: u64 = 1600;
+        const RANDOM_TEST_SIZE: usize = TEST_SIZE as usize / 3 * 2;
 
         const DATA_SIZE: usize = 240;
         const NUMBER_TESTS: usize = 200;
 
-        debug!("{:=^80}", " Init Test Set ");
+        debug!("{:=^80}", " Init Test Data ");
 
-        for i in 0..TEST_SIZE {
+        for i in 0..TEST_SIZE / 2 {
             // random with seed i
             let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
 
@@ -257,13 +278,35 @@ mod tests {
             table.set(i, data).await;
         }
 
-        for i in (0..TEST_SIZE).step_by(5) {
+        for i in (0..TEST_SIZE / 2).step_by(5) {
             table.delete(i).await;
         }
 
         debug!(
             "{:=^80}",
-            format!(" Init Test Set Done ({:?}) ", start.elapsed())
+            format!(" Init Test Data Done ({:?}) ", start.elapsed())
+        );
+
+        debug!(">>> Waiting for flush...");
+        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+
+        debug!("{:=^80}", " Add More Data ");
+
+        for i in TEST_SIZE / 2..TEST_SIZE {
+            // random with seed i
+            let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
+
+            let mut rng = rand::rngs::StdRng::seed_from_u64(i);
+            let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+            rng.fill_bytes(&mut rnd_data);
+
+            data.extend_from_slice(&rnd_data);
+            table.set(i, data).await;
+        }
+
+        debug!(
+            "{:=^80}",
+            format!(" Add More Data Done ({:?}) ", start.elapsed())
         );
 
         debug!(">>> Waiting for flush...");

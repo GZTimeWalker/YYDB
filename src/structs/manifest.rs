@@ -4,20 +4,19 @@ use avl::AvlTreeMap;
 use std::{collections::VecDeque, io::SeekFrom, path::PathBuf, sync::Arc};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-use super::{kvstore::*, lsm::*, META_MAGIC_NUMBER, tracker::SSTableTracker};
+use super::{kvstore::*, lsm::*, tracker::SSTableTracker, META_MAGIC_NUMBER};
 use crate::{structs::table::TableId, utils::*};
 
 #[derive(Debug)]
 pub struct Manifest {
     io: IOHandler,
     tables: AvlTreeMap<SSTableKey, Arc<SSTable>>,
+    tracker: SSTableTracker,
 
     pub factory: IOHandlerFactory,
     pub table_id: TableId,
     pub row_size: u32,
     pub bloom_filter: BloomFilter,
-
-    // pub tracker: Option<SSTableTracker>,
 }
 
 impl Manifest {
@@ -37,15 +36,21 @@ impl Manifest {
                 row_size: 0,
                 tables: AvlTreeMap::new(),
                 bloom_filter: BloomFilter::new_global(),
-                // tracker: None,
+                tracker: SSTableTracker::new(),
             })
         })
     }
 
+    #[inline]
     pub fn with_row_size(&mut self, row_size: u32) {
         if self.row_size == 0 {
             self.row_size = row_size;
         }
+    }
+
+    #[inline]
+    pub fn get_compactable_tables(&self) -> Vec<(SSTableLevel, SSTableList)> {
+        self.tracker.get_compactable_tables()
     }
 
     pub fn iter(&self) -> LsmTreeIterator {
@@ -61,19 +66,7 @@ impl Manifest {
     pub async fn add_table(&mut self, table: SSTable) {
         let table = Arc::new(table);
         self.tables.insert(table.meta().key, table.clone());
-
-        // TODO: compact existing tables
-        //
-        // 0. spawn a new task with `crate::core::runtime::spawn`
-        // 1. read all table into a map (level, (key, Arc<SSTable>))
-        // 2. check if there are any tables that can be compacted
-        // 3. compact them with `fn compact_tables(tables: Vec<Arc<SSTable>>) -> SSTable`
-        // 4. add the new table to the map with `self.add_table`
-
-        // self.table_tracker.push_back(table);
-        // crate::core::runtime::spawn(async move {
-        //     self.table_tracker.compact().await;
-        // });
+        self.tracker.push_back(table);
     }
 
     pub fn table_files(&self) -> Vec<String> {
@@ -83,12 +76,13 @@ impl Manifest {
             .collect()
     }
 
-    pub fn init_tracker(&self, tracker: & mut SSTableTracker){
-        for table in self.tables.values() {
-            tracker.push_back(table.clone());
+    pub fn pop_tables(&mut self, tables: &SSTableList) {
+        for table in tables {
+            self.tables.remove(&table.meta().key);
+            self.tracker.pop_front(table.meta().key.level());
+            std::fs::remove_file(table.file_name()).ok();
         }
     }
-
 }
 
 #[async_trait]
@@ -224,8 +218,14 @@ impl AsyncFromIO for Manifest {
             tables.insert(key, Arc::new(table));
         }
 
+        let mut tracker = SSTableTracker::new();
+        for table in tables.values() {
+            tracker.push_back(table.clone());
+        }
+
         Ok(Self {
             io: io.clone().await?,
+            tracker,
             table_id,
             row_size,
             tables,

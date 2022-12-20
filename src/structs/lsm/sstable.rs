@@ -1,7 +1,11 @@
 use std::{
+    collections::BTreeMap,
     fmt::{Debug, LowerHex},
     path::PathBuf,
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 use async_trait::async_trait;
@@ -9,7 +13,7 @@ use chrono::TimeZone;
 use tokio::{
     fs,
     io::AsyncWriteExt,
-    sync::{Mutex, MutexGuard, RwLock},
+    sync::{Mutex, MutexGuard},
 };
 
 use crate::{structs::*, utils::*};
@@ -20,8 +24,9 @@ use super::*;
 pub struct SSTable {
     meta: SSTableMeta,
     iter: Mutex<SSTableIter>,
-    status: RwLock<SSTableStatus>,
+    locked: AtomicBool,
     file_name: Arc<PathBuf>,
+    data_size: u32,
 }
 
 impl SSTable {
@@ -34,8 +39,9 @@ impl SSTable {
         let io = factory.create(key).await?;
         Ok(Self {
             meta,
+            data_size,
+            locked: AtomicBool::new(false),
             file_name: io.file_path.clone(),
-            status: RwLock::new(SSTableStatus::Available),
             iter: Mutex::new(SSTableIter::new(io, data_size).await?),
         })
     }
@@ -61,16 +67,36 @@ impl SSTable {
     }
 
     #[inline]
-    pub async fn is_available(&self) -> bool {
-        *self.status.read().await == SSTableStatus::Available
+    pub fn is_locked(&self) -> bool {
+        self.locked.load(Ordering::Relaxed)
     }
 
-    /// archive data to disk, only for L0
-    pub async fn archive(&self, data: &mut Vec<KvStore>) -> Result<()> {
-        data.sort_by(|a, b| a.0.cmp(&b.0));
+    #[inline]
+    pub fn lock(&self) -> bool {
+        self.locked
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+    }
 
-        let min_key = data.first().unwrap().0;
-        let max_key = data.last().unwrap().0;
+    #[inline]
+    pub fn unlock(&self) {
+        self.locked.store(false, Ordering::Relaxed);
+    }
+
+    #[inline]
+    pub async fn new_iter(&self) -> Result<SSTableIter> {
+        debug!("New iter for sstable: {:?}", self.file_name);
+        let io = self.iter.lock().await.clone_io().await?;
+        SSTableIter::new(io, self.data_size).await
+    }
+
+    /// archive data to disk
+    ///
+    /// # Arguments
+    /// * `data` - data to be archived, must be sorted by key
+    pub async fn archive(&self, data: &BTreeMap<Key, DataStore>) -> Result<()> {
+        let min_key = *data.iter().next().unwrap().0;
+        let max_key = *data.iter().next_back().unwrap().0;
 
         let entries_count = data.len() as u32;
         let mut raw_hasher = crc32fast::Hasher::new();
