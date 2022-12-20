@@ -9,7 +9,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  test:
+    name: Cargo Test
     runs-on: ubuntu-20.04
 
     steps:
@@ -36,3 +37,17 @@ jobs:
       run: cargo test --config 'env.LOG_LEVEL = "trace"'
       env:
         MYSQL_SOURCE_DIR: /home/runner/mysql
+
+  typo:
+    name: Spell Check with Typos
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout Actions Repository
+      uses: actions/checkout@v2
+
+    - name: Use custom config file
+      uses: crate-ci/typos@master
+      with:
+        files: ./
+        config: ./.github/typo.toml
