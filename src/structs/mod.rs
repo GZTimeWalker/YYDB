@@ -7,6 +7,7 @@ pub mod tracker;
 
 pub use kvstore::*;
 pub use mem::*;
+pub use table::*;
 
 pub const META_MAGIC_NUMBER: u32 = u32::from_be_bytes(*b"YYMT");
 pub const CACHE_MAGIC_NUMBER: u32 = u32::from_be_bytes(*b"YYCA");

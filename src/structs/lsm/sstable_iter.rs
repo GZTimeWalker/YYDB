@@ -12,12 +12,13 @@ use crate::{
 };
 
 pub const SSTABLE_ITER_BUF_SIZE: usize = 0x800;
-const HEADER_SIZE: u64 = 32;
+const HEADER_SIZE: u64 = 36;
 
 #[derive(Debug)]
 pub struct SSTableIter {
     io: IOHandler,
     entries_count: u32,
+    deleted_count: u32,
     entry_cur: u32,
     last_entry_key: Option<Key>,
     bytes_read: usize,
@@ -35,6 +36,7 @@ impl SSTableIter {
         let mut iter = Self {
             io,
             entries_count: 0,
+            deleted_count: 0,
             entry_cur: 0,
             raw_checksum: 0,
             last_entry_key: None,
@@ -71,6 +73,7 @@ impl SSTableIter {
         self.raw_checksum = file_io.read_u32().await?;
         self.compressed_checksum = file_io.read_u32().await?;
         self.entries_count = file_io.read_u32().await?;
+        self.deleted_count = file_io.read_u32().await?;
 
         self.min_key = file_io.read_u64().await?;
         self.max_key = file_io.read_u64().await?;
@@ -211,7 +214,8 @@ pub mod tests {
         let raw_checksum = file.read_u32().await?;
         let compressed_checksum = file.read_u32().await?;
 
-        let len = file.read_u32().await?;
+        let entries_count = file.read_u32().await?;
+        let deleted = file.read_u32().await?;
 
         let min_key = file.read_u64().await?;
         let max_key = file.read_u64().await?;
@@ -245,8 +249,8 @@ pub mod tests {
         assert_eq!(raw_checksum, computed_raw_checksum);
 
         debug!(
-            "File \"{}\" has {} bytes, {} entries, key range [{}, {}]",
-            file_name, bytes_total, len, min_key, max_key
+            "File \"{}\" has {} bytes, {} entries ({} deleted), key range [{}, {}]",
+            file_name, bytes_total, entries_count, deleted, min_key, max_key
         );
 
         Ok(())

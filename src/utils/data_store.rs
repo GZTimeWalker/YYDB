@@ -14,6 +14,22 @@ pub enum DataStore {
     NotFound,
 }
 
+impl DataStore {
+    pub fn unwrap(self) -> Data {
+        match self {
+            DataStore::Value(value) => value,
+            _ => panic!("DataStore is not a Value"),
+        }
+    }
+
+    pub fn is_deleted(&self) -> bool {
+        match self {
+            DataStore::Deleted => true,
+            _ => false,
+        }
+    }
+}
+
 impl From<DataStore> for Option<Data> {
     fn from(data: DataStore) -> Self {
         match data {

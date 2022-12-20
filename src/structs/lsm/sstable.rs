@@ -99,12 +99,16 @@ impl SSTable {
         let max_key = *data.iter().next_back().unwrap().0;
 
         let entries_count = data.len() as u32;
+        let mut deleted_count = 0;
         let mut raw_hasher = crc32fast::Hasher::new();
 
         let mut bytes_read = 0;
         let bytes = {
             let mut writer = CompressionEncoder::new(Vec::new());
             for kvstore in data.iter() {
+                if kvstore.1.is_deleted() {
+                    deleted_count += 1;
+                }
                 let row = bincode::encode_to_vec(kvstore, BIN_CODE_CONF).unwrap();
                 bytes_read += row.len();
                 raw_hasher.update(&row);
@@ -137,6 +141,7 @@ impl SSTable {
         file_io.write_u32(raw_checksum).await?;
         file_io.write_u32(compressed_checksum).await?;
         file_io.write_u32(entries_count).await?;
+        file_io.write_u32(deleted_count).await?;
         file_io.write_u64(min_key).await?;
         file_io.write_u64(max_key).await?;
         file_io.write_all(&bytes).await?;

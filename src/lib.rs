@@ -13,6 +13,9 @@ mod utils;
 #[cfg(not(test))]
 mod bridge;
 
+#[cfg(test)]
+mod test;
+
 pub mod core;
 mod structs;
 

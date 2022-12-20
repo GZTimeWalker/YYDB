@@ -195,7 +195,7 @@ impl AsyncFromIO for Manifest {
 
         let table_id = TableId(file_io.read_u64().await?);
         let row_size = file_io.read_u32().await?;
-
+        
         let bloom_filter: BloomFilter = {
             let filter_size = file_io.read_u32().await?;
             let mut bytes = vec![0; filter_size as usize];
