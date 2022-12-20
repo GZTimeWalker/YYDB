@@ -9,7 +9,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  test:
+    name: Cargo Test
     runs-on: ubuntu-20.04
 
     steps:
@@ -26,27 +27,27 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-cargo-
 
-    - uses: actions/cache@v3
-      id: mysql-cache
-      with:
-        path: |
-          ~/mysql/
-        key: ${{ runner.os }}-mysql
-        restore-keys: |
-          ${{ runner.os }}-mysql
-
-    - name: Clone MySQL
-      if: steps.mysql-cache.outputs.cache-hit != 'true'
-      run: |
-        git clone https://github.com/mysql/mysql-server.git --depth 1 --branch 8.0 /home/runner/mysql
-
     - name: Install Dependency
       run: |
-        sudo apt-get update
-        sudo apt-get install --no-install-recommends -y build-essential cmake bzip2 \
-          openssl perl xz-utils zstd libssl-dev zlib1g-dev libncurses-dev pkg-config libudev-dev
+        rustup toolchain install nightly
+        rustup default nightly
+        rustup update
 
     - name: Run Tests
-      run: cargo test -- --nocapture
+      run: cargo test --config 'env.LOG_LEVEL = "trace"'
       env:
         MYSQL_SOURCE_DIR: /home/runner/mysql
+
+  typo:
+    name: Spell Check with Typos
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout Actions Repository
+      uses: actions/checkout@v2
+
+    - name: Use custom config file
+      uses: crate-ci/typos@master
+      with:
+        files: ./
+        config: ./.github/typo.toml

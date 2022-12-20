@@ -5,6 +5,7 @@ use std::collections::{BTreeMap, VecDeque};
 use std::io::SeekFrom;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::time::Instant;
 
@@ -25,6 +26,7 @@ pub struct MemTable {
     mut_map: Arc<RwLock<MemStore>>,
     lock_map: Arc<RwLock<MemStore>>,
     manifest: Option<Arc<RwLock<Manifest>>>,
+    lock_map_released: Arc<AtomicBool>,
     io: IOHandler,
 }
 
@@ -44,6 +46,7 @@ impl MemTable {
                 debug!("Create MemTable     : {:?}", path);
                 Ok(Self {
                     manifest: None,
+                    lock_map_released: Arc::new(AtomicBool::new(true)),
                     mut_map: Arc::new(RwLock::new(BTreeMap::new())),
                     lock_map: Arc::new(RwLock::new(BTreeMap::new())),
                     io,
@@ -59,20 +62,23 @@ impl MemTable {
         let mut mut_map = self.mut_map.write().await;
         let mut lock_map = self.lock_map.write().await;
 
+        self.lock_map_released.store(false, std::sync::atomic::Ordering::Relaxed);
         lock_map.clear();
         std::mem::swap(&mut *mut_map, &mut *lock_map);
     }
 
-    async fn do_persist(&self) {
-        if self.mut_map.read().await.len() >= MEM_BLOCK_NUM {
+    pub async fn do_persist(&self, new_table_added: Arc<AtomicBool>) {
+        if self.mut_map.read().await.len() >= MEM_BLOCK_NUM && self.lock_map_released.load(std::sync::atomic::Ordering::Relaxed) {
             self.swap().await;
 
             let locked_map = self.lock_map.clone();
             let manifest = self.manifest.clone().expect("Manifest is not set");
+            let lock_map_released = self.lock_map_released.clone();
 
             crate::core::runtime::spawn(async move {
                 let start = Instant::now();
-                Self::persist(locked_map, manifest).await.unwrap();
+                Self::persist(locked_map, lock_map_released, manifest).await.unwrap();
+                new_table_added.store(true, std::sync::atomic::Ordering::Relaxed);
                 info!("Persist to disk in {:?}", start.elapsed());
             });
         }
@@ -80,6 +86,7 @@ impl MemTable {
 
     async fn persist(
         locked_map: Arc<RwLock<MemStore>>,
+        lock_map_released: Arc<AtomicBool>,
         manifest: Arc<RwLock<Manifest>>,
     ) -> Result<()> {
         // 1. calculate the checksum and bloom filter of the SSTable
@@ -92,7 +99,7 @@ impl MemTable {
         let key = SSTableKey::new(0u64);
         let mut meta = SSTableMeta::new(key);
 
-        let mut data: Vec<KvStore> = locked_map
+        let data: BTreeMap<Key, DataStore> = locked_map
             .read()
             .await
             .iter()
@@ -102,11 +109,13 @@ impl MemTable {
             })
             .collect();
 
+        lock_map_released.store(true, std::sync::atomic::Ordering::Relaxed);
+
         meta.set_entries_count(data.len());
 
         let gurad_manifest = manifest.read().await;
         let sstable = SSTable::new(meta, &gurad_manifest.factory, gurad_manifest.row_size).await?;
-        sstable.archive(&mut data).await?;
+        sstable.archive(&data).await?;
         drop(gurad_manifest);
 
         manifest.write().await.add_table(sstable).await;
@@ -165,14 +174,10 @@ impl AsyncKvStoreWrite for MemTable {
         if let Some(manifest) = &self.manifest {
             manifest.write().await.bloom_filter.insert(key);
         }
-
-        self.do_persist().await;
     }
 
     async fn delete(&self, key: Key) {
         self.mut_map.write().await.insert(key, DataStore::Deleted);
-
-        self.do_persist().await;
     }
 }
 
@@ -224,10 +229,11 @@ impl AsyncFromIO for MemTable {
         };
 
         Ok(Self {
+            io: io.clone().await?,
             manifest: None,
+            lock_map_released: Arc::new(AtomicBool::new(true)),
             mut_map: Arc::new(RwLock::new(mut_map)),
             lock_map: Arc::new(RwLock::new(BTreeMap::new())),
-            io: io.clone().await?,
         })
     }
 }

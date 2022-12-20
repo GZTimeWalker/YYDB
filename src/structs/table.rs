@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use std::fmt::{Formatter, LowerHex};
 use std::hash::{Hash, Hasher};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct TableId(pub u64);
@@ -36,6 +37,9 @@ pub struct Table {
     memtable: MemTable,
     manifest: Arc<RwLock<Manifest>>,
 
+    // new table added
+    new_table_added: Arc<AtomicBool>,
+
     // iterators
     memtable_iter: RwLock<Option<MemTableIterator>>,
     lsm_iter: RwLock<Option<LsmTreeIterator>>,
@@ -49,14 +53,14 @@ impl Table {
 
         let table_name = &table_name;
         std::fs::create_dir_all(table_name)?;
-
         let manifest = Arc::new(RwLock::new(Manifest::new(table_name).await?));
 
         Ok(Table {
             id: table_id,
             name: table_name.to_string(),
-            memtable: MemTable::new(table_name, Some(manifest.clone())).await?,
-            manifest,
+            manifest: manifest.clone(),
+            memtable: MemTable::new(table_name, Some(manifest)).await?,
+            new_table_added: Arc::new(AtomicBool::new(false)),
             memtable_iter: RwLock::new(None),
             lsm_iter: RwLock::new(None),
             deleted: RwLock::new(None),
@@ -97,6 +101,24 @@ impl Table {
     #[inline]
     async fn deleted_contains(&self, key: &Key) -> bool {
         self.deleted.read().await.as_ref().unwrap().contains(key)
+    }
+
+    async fn compact(&self) {
+        let compactable_tables = self.manifest.read().await.get_compactable_tables();
+
+        for (level, tables) in compactable_tables {
+            trace!(
+                "Compacting tables at level {} with {:#?}",
+                level,
+                tables.iter().map(|t| t.meta().key).collect::<Vec<_>>()
+            );
+
+            let manifest = self.manifest.clone();
+
+            crate::core::runtime::spawn(async move {
+                super::tracker::compact_worker(level, tables, manifest).await
+            });
+        }
     }
 
     pub async fn next(&self) -> Result<Option<KvStore>> {
@@ -189,11 +211,18 @@ impl AsyncKvStoreWrite for Table {
             .write()
             .await
             .with_row_size(value.len() as u32);
-        self.memtable.set(key, value).await
+        self.memtable.set(key, value).await;
+        self.memtable.do_persist(self.new_table_added.clone()).await;
+
+        if self.new_table_added.load(Ordering::Relaxed) {
+            trace!("New table added, compacting...");
+            self.new_table_added.store(false, Ordering::Relaxed);
+            self.compact().await;
+        }
     }
 
     async fn delete(&self, key: Key) {
-        self.memtable.delete(key).await
+        self.memtable.delete(key).await;
     }
 }
 
@@ -229,15 +258,15 @@ mod tests {
         assert_eq!(table.name(), test_dir);
         assert_eq!(table.id(), TableId::new(test_dir));
 
-        const TEST_SIZE: u64 = 800;
-        const RANDOM_TEST_SIZE: usize = 1000;
+        const TEST_SIZE: u64 = 6400;
+        const RANDOM_TEST_SIZE: usize = TEST_SIZE as usize / 3;
 
         const DATA_SIZE: usize = 240;
         const NUMBER_TESTS: usize = 200;
 
-        debug!("{:=^80}", " Init Test Set ");
+        debug!("{:=^80}", " Init Test Data ");
 
-        for i in 0..TEST_SIZE {
+        for i in 0..TEST_SIZE / 2 {
             // random with seed i
             let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
 
@@ -249,13 +278,35 @@ mod tests {
             table.set(i, data).await;
         }
 
-        for i in (0..TEST_SIZE).step_by(5) {
+        for i in (0..TEST_SIZE / 2).step_by(5) {
             table.delete(i).await;
         }
 
         debug!(
             "{:=^80}",
-            format!(" Init Test Set Done ({:?}) ", start.elapsed())
+            format!(" Init Test Data Done ({:?}) ", start.elapsed())
+        );
+
+        debug!(">>> Waiting for flush...");
+        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+
+        debug!("{:=^80}", " Add More Data ");
+
+        for i in TEST_SIZE / 2..TEST_SIZE {
+            // random with seed i
+            let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
+
+            let mut rng = rand::rngs::StdRng::seed_from_u64(i);
+            let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+            rng.fill_bytes(&mut rnd_data);
+
+            data.extend_from_slice(&rnd_data);
+            table.set(i, data).await;
+        }
+
+        debug!(
+            "{:=^80}",
+            format!(" Add More Data Done ({:?}) ", start.elapsed())
         );
 
         debug!(">>> Waiting for flush...");
@@ -274,7 +325,7 @@ mod tests {
             format!(" Check Files Done ({:?}) ", test_start.elapsed())
         );
 
-        debug!("{:=^80}", " Sequential Read Test ");
+        debug!("{:=^80}", format!(" Sequential Read Test ({}) ", TEST_SIZE));
         let start = std::time::Instant::now();
 
         for i in 0..TEST_SIZE {
@@ -306,46 +357,8 @@ mod tests {
             format!(" Sequential Read Test Done ({:?}) ", start.elapsed())
         );
 
-        // test for random key reading
-        debug!("{:=^80}", " Random Read Test ");
-        let start = std::time::Instant::now();
-
-        for _ in 0..RANDOM_TEST_SIZE {
-            let mut rng = rand::rngs::StdRng::seed_from_u64(rand::random());
-            let key = rng.next_u64() % TEST_SIZE;
-
-            if key % 5 == 0 {
-                assert_eq!(table.get(key).await?, DataStore::Deleted);
-            } else {
-                match table.get(key).await? {
-                    DataStore::Value(v) => {
-                        let mut data = vec![(key % 57 + 65) as u8; NUMBER_TESTS];
-
-                        let mut rng = rand::rngs::StdRng::seed_from_u64(key);
-                        let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
-                        rng.fill_bytes(&mut rnd_data);
-
-                        data.extend_from_slice(&rnd_data);
-
-                        assert_eq!(v.as_ref(), &data);
-                    }
-                    x => {
-                        panic!("Unexpected value for key {}: {:?}", key, x);
-                    }
-                }
-            }
-        }
-
-        debug!(
-            "{:=^80}",
-            format!(" Random Read Test Done ({:?}) ", start.elapsed())
-        );
-
-        debug!("{:=^80}", " NotFound Test ");
-
-        assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
-
         debug!("{:=^80}", " Iter Test ");
+
         let start = std::time::Instant::now();
 
         table.init_iter().await;
@@ -366,6 +379,46 @@ mod tests {
         let size_on_disk = table.size_on_disk().await?;
 
         debug!("Size on disk: {}", human_read_size(size_on_disk));
+
+        // test for random key reading
+        debug!("{:=^80}", format!(" Random Read Test ({}) ", RANDOM_TEST_SIZE));
+
+        let start = std::time::Instant::now();
+
+        for _ in 0..RANDOM_TEST_SIZE {
+            let mut rng = rand::rngs::StdRng::seed_from_u64(rand::random());
+            let key = rng.next_u64() % TEST_SIZE;
+
+            match table.get(key).await? {
+                DataStore::Value(v) => {
+                    let mut data = vec![(key % 57 + 65) as u8; NUMBER_TESTS];
+
+                    let mut rng = rand::rngs::StdRng::seed_from_u64(key);
+                    let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+                    rng.fill_bytes(&mut rnd_data);
+
+                    data.extend_from_slice(&rnd_data);
+
+                    assert_eq!(v.as_ref(), &data);
+                }
+                x => {
+                    if key % 5 == 0 {
+                        continue;
+                    } else {
+                        panic!("Unexpected value for key {}: {:?}", key, x);
+                    }
+                }
+            }
+        }
+
+        debug!(
+            "{:=^80}",
+            format!(" Random Read Test Done ({:?}) ", start.elapsed())
+        );
+
+        debug!("{:=^80}", " NotFound Test ");
+
+        assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
 
         debug!(
             "{:=^80}",
