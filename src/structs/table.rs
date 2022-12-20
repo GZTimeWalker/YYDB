@@ -4,7 +4,9 @@ use tokio::sync::RwLock;
 use super::lsm::LsmTreeIterator;
 use super::manifest::Manifest;
 use super::mem::MemTable;
+use super::tracker::SSTableTracker;
 use super::{kvstore::*, MemTableIterator};
+// use crate::structs::tracker;
 use crate::utils::*;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
@@ -35,6 +37,7 @@ pub struct Table {
     name: String,
     memtable: MemTable,
     manifest: Arc<RwLock<Manifest>>,
+    // tracker: Arc<RwLock<SSTableTracker>>,
 
     // iterators
     memtable_iter: RwLock<Option<MemTableIterator>>,
@@ -52,10 +55,15 @@ impl Table {
 
         let manifest = Arc::new(RwLock::new(Manifest::new(table_name).await?));
 
+        let mut table_tracker = SSTableTracker::new(manifest.clone());
+
+        manifest.read().await.init_tracker(&mut table_tracker);
+
         Ok(Table {
             id: table_id,
             name: table_name.to_string(),
             memtable: MemTable::new(table_name, Some(manifest.clone())).await?,
+            // tracker: RwLock::new(table_tracker),
             manifest,
             memtable_iter: RwLock::new(None),
             lsm_iter: RwLock::new(None),

@@ -4,7 +4,7 @@ use avl::AvlTreeMap;
 use std::{collections::VecDeque, io::SeekFrom, path::PathBuf, sync::Arc};
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-use super::{kvstore::*, lsm::*, META_MAGIC_NUMBER};
+use super::{kvstore::*, lsm::*, META_MAGIC_NUMBER, tracker::SSTableTracker};
 use crate::{structs::table::TableId, utils::*};
 
 #[derive(Debug)]
@@ -16,6 +16,8 @@ pub struct Manifest {
     pub table_id: TableId,
     pub row_size: u32,
     pub bloom_filter: BloomFilter,
+
+    // pub tracker: Option<SSTableTracker>,
 }
 
 impl Manifest {
@@ -35,6 +37,7 @@ impl Manifest {
                 row_size: 0,
                 tables: AvlTreeMap::new(),
                 bloom_filter: BloomFilter::new_global(),
+                // tracker: None,
             })
         })
     }
@@ -79,6 +82,13 @@ impl Manifest {
             .map(|table| table.file_name().to_string())
             .collect()
     }
+
+    pub fn init_tracker(&self, tracker: & mut SSTableTracker){
+        for table in self.tables.values() {
+            tracker.push_back(table.clone());
+        }
+    }
+
 }
 
 #[async_trait]
@@ -214,12 +224,6 @@ impl AsyncFromIO for Manifest {
             tables.insert(key, Arc::new(table));
         }
 
-        // let mut table_tracker = SSTableTracker::new();
-
-        // for table in tables.values() {
-        //     table_tracker.push_back(table.clone());
-        // }
-
         Ok(Self {
             io: io.clone().await?,
             table_id,
@@ -227,7 +231,6 @@ impl AsyncFromIO for Manifest {
             tables,
             factory,
             bloom_filter,
-            // table_tracker,
         })
     }
 }
