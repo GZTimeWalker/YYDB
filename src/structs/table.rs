@@ -107,7 +107,7 @@ impl Table {
         let compactable_tables = self.manifest.read().await.get_compactable_tables();
 
         for (level, tables) in compactable_tables {
-            debug!(
+            trace!(
                 "Compacting tables at level {} with {:#?}",
                 level,
                 tables.iter().map(|t| t.meta().key).collect::<Vec<_>>()
@@ -215,7 +215,7 @@ impl AsyncKvStoreWrite for Table {
         self.memtable.do_persist(self.new_table_added.clone()).await;
 
         if self.new_table_added.load(Ordering::Relaxed) {
-            debug!("New table added, compacting...");
+            trace!("New table added, compacting...");
             self.new_table_added.store(false, Ordering::Relaxed);
             self.compact().await;
         }
@@ -258,8 +258,8 @@ mod tests {
         assert_eq!(table.name(), test_dir);
         assert_eq!(table.id(), TableId::new(test_dir));
 
-        const TEST_SIZE: u64 = 1600;
-        const RANDOM_TEST_SIZE: usize = TEST_SIZE as usize / 3 * 2;
+        const TEST_SIZE: u64 = 6400;
+        const RANDOM_TEST_SIZE: usize = TEST_SIZE as usize / 3;
 
         const DATA_SIZE: usize = 240;
         const NUMBER_TESTS: usize = 200;
@@ -325,7 +325,7 @@ mod tests {
             format!(" Check Files Done ({:?}) ", test_start.elapsed())
         );
 
-        debug!("{:=^80}", " Sequential Read Test ");
+        debug!("{:=^80}", format!(" Sequential Read Test ({}) ", TEST_SIZE));
         let start = std::time::Instant::now();
 
         for i in 0..TEST_SIZE {
@@ -357,46 +357,8 @@ mod tests {
             format!(" Sequential Read Test Done ({:?}) ", start.elapsed())
         );
 
-        // test for random key reading
-        debug!("{:=^80}", " Random Read Test ");
-        let start = std::time::Instant::now();
-
-        for _ in 0..RANDOM_TEST_SIZE {
-            let mut rng = rand::rngs::StdRng::seed_from_u64(rand::random());
-            let key = rng.next_u64() % TEST_SIZE;
-
-            if key % 5 == 0 {
-                assert_eq!(table.get(key).await?, DataStore::Deleted);
-            } else {
-                match table.get(key).await? {
-                    DataStore::Value(v) => {
-                        let mut data = vec![(key % 57 + 65) as u8; NUMBER_TESTS];
-
-                        let mut rng = rand::rngs::StdRng::seed_from_u64(key);
-                        let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
-                        rng.fill_bytes(&mut rnd_data);
-
-                        data.extend_from_slice(&rnd_data);
-
-                        assert_eq!(v.as_ref(), &data);
-                    }
-                    x => {
-                        panic!("Unexpected value for key {}: {:?}", key, x);
-                    }
-                }
-            }
-        }
-
-        debug!(
-            "{:=^80}",
-            format!(" Random Read Test Done ({:?}) ", start.elapsed())
-        );
-
-        debug!("{:=^80}", " NotFound Test ");
-
-        assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
-
         debug!("{:=^80}", " Iter Test ");
+
         let start = std::time::Instant::now();
 
         table.init_iter().await;
@@ -417,6 +379,46 @@ mod tests {
         let size_on_disk = table.size_on_disk().await?;
 
         debug!("Size on disk: {}", human_read_size(size_on_disk));
+
+        // test for random key reading
+        debug!("{:=^80}", format!(" Random Read Test ({}) ", RANDOM_TEST_SIZE));
+
+        let start = std::time::Instant::now();
+
+        for _ in 0..RANDOM_TEST_SIZE {
+            let mut rng = rand::rngs::StdRng::seed_from_u64(rand::random());
+            let key = rng.next_u64() % TEST_SIZE;
+
+            match table.get(key).await? {
+                DataStore::Value(v) => {
+                    let mut data = vec![(key % 57 + 65) as u8; NUMBER_TESTS];
+
+                    let mut rng = rand::rngs::StdRng::seed_from_u64(key);
+                    let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+                    rng.fill_bytes(&mut rnd_data);
+
+                    data.extend_from_slice(&rnd_data);
+
+                    assert_eq!(v.as_ref(), &data);
+                }
+                x => {
+                    if key % 5 == 0 {
+                        continue;
+                    } else {
+                        panic!("Unexpected value for key {}: {:?}", key, x);
+                    }
+                }
+            }
+        }
+
+        debug!(
+            "{:=^80}",
+            format!(" Random Read Test Done ({:?}) ", start.elapsed())
+        );
+
+        debug!("{:=^80}", " NotFound Test ");
+
+        assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
 
         debug!(
             "{:=^80}",
