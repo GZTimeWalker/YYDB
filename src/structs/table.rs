@@ -103,6 +103,11 @@ impl Table {
         self.deleted.read().await.as_ref().unwrap().contains(key)
     }
 
+    #[inline]
+    pub async fn table_files(&self) -> Vec<String> {
+        self.manifest.read().await.table_files()
+    }
+
     async fn compact(&self) {
         let compactable_tables = self.manifest.read().await.get_compactable_tables();
 
@@ -125,17 +130,15 @@ impl Table {
         if let Some(memtable_iter) = self.memtable_iter.write().await.as_mut() {
             for kvstore in memtable_iter.by_ref() {
                 match kvstore {
-                    (key, DataStore::Value(value)) => {
-                        if self.deleted_contains(&key).await {
-                            continue;
-                        } else {
-                            return Ok(Some((key, DataStore::Value(value))));
-                        }
-                    }
-                    (key, _) => {
+                    (key, DataStore::Value(value)) => match self.deleted_contains(&key).await {
+                        true => continue,
+                        false => return Ok(Some((key, DataStore::Value(value)))),
+                    },
+                    (key, DataStore::Deleted) => {
                         self.deleted_insert(key).await;
-                        continue;
+                        return Ok(None);
                     }
+                    _ => return Ok(None),
                 }
             }
         }
@@ -143,26 +146,20 @@ impl Table {
         if let Some(lsm_iter) = self.lsm_iter.write().await.as_mut() {
             while let Some(kvstore) = lsm_iter.next().await? {
                 match kvstore {
-                    (key, DataStore::Value(value)) => {
-                        if self.deleted_contains(&key).await {
-                            continue;
-                        } else {
-                            return Ok(Some((key, DataStore::Value(value))));
-                        }
-                    }
-                    (key, _) => {
+                    (key, DataStore::Value(value)) => match self.deleted_contains(&key).await {
+                        true => continue,
+                        false => return Ok(Some((key, DataStore::Value(value)))),
+                    },
+                    (key, DataStore::Deleted) => {
                         self.deleted_insert(key).await;
-                        continue;
+                        return Ok(None);
                     }
+                    _ => return Ok(None),
                 }
             }
         }
 
         Ok(None)
-    }
-
-    pub async fn table_files(&self) -> Vec<String> {
-        self.manifest.read().await.table_files()
     }
 }
 
