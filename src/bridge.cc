@@ -13,15 +13,11 @@ namespace yydb {
     /* Lifecycle */
     int ha_yydb_core_init() {
         rust_init();
-
-        // do other stuff
         return 0;
     }
 
     int ha_yydb_core_deinit() {
         rust_deinit();
-
-        // do other stuff
         return 0;
     }
     /* End of lifecycle */
@@ -54,7 +50,7 @@ namespace yydb {
 
     void ha_yydb_delete_table(const char * name){
         rust::Str name_str(name);
-        return delete_table(name_str);
+        delete_table(name_str);
     }
     /* End of table */
 }
