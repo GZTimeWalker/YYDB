@@ -62,13 +62,20 @@ impl SSTableTracker {
         let mut ret = Vec::new();
 
         for (level, tables) in self.inner.iter() {
-
-            trace!("All tables for L{:?}   : {:#?}", level, tables.iter().map(|t| t.meta().key).collect::<Vec<_>>());
+            trace!(
+                "All tables for L{:?}   : {:#?}",
+                level,
+                tables.iter().map(|t| t.meta().key).collect::<Vec<_>>()
+            );
 
             let mut compactable = Vec::with_capacity(tables.len());
 
             for table in tables.iter() {
-                trace!("Table {:?} is locked? [{}]", table.meta().key, table.is_locked());
+                trace!(
+                    "Table {:?} is locked? [{}]",
+                    table.meta().key,
+                    table.is_locked()
+                );
 
                 if table.lock() {
                     trace!("Lock table for L{:?} : {:?}", level, table.meta().key);
@@ -88,7 +95,12 @@ impl SSTableTracker {
             }
 
             if compactable.len() < TABLE_COMPACT_THRESHOLD {
-                trace!("Not enough tables for L{:?} {}/{}", level, compactable.len(), TABLE_COMPACT_THRESHOLD);
+                trace!(
+                    "Not enough tables for L{:?} {}/{}",
+                    level,
+                    compactable.len(),
+                    TABLE_COMPACT_THRESHOLD
+                );
                 for table in compactable.iter() {
                     table.unlock();
                 }

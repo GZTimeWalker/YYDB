@@ -4,8 +4,8 @@ use crc32fast::Hasher;
 use std::collections::{BTreeMap, VecDeque};
 use std::io::SeekFrom;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::sync::Arc;
 use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 use tokio::time::Instant;
 
@@ -62,13 +62,18 @@ impl MemTable {
         let mut mut_map = self.mut_map.write().await;
         let mut lock_map = self.lock_map.write().await;
 
-        self.lock_map_released.store(false, std::sync::atomic::Ordering::Relaxed);
+        self.lock_map_released
+            .store(false, std::sync::atomic::Ordering::Relaxed);
         lock_map.clear();
         std::mem::swap(&mut *mut_map, &mut *lock_map);
     }
 
     pub async fn do_persist(&self, new_table_added: Arc<AtomicBool>) {
-        if self.mut_map.read().await.len() >= MEM_BLOCK_NUM && self.lock_map_released.load(std::sync::atomic::Ordering::Relaxed) {
+        if self.mut_map.read().await.len() >= MEM_BLOCK_NUM
+            && self
+                .lock_map_released
+                .load(std::sync::atomic::Ordering::Relaxed)
+        {
             self.swap().await;
 
             let locked_map = self.lock_map.clone();
@@ -77,7 +82,9 @@ impl MemTable {
 
             crate::core::runtime::spawn(async move {
                 let start = Instant::now();
-                Self::persist(locked_map, lock_map_released, manifest).await.unwrap();
+                Self::persist(locked_map, lock_map_released, manifest)
+                    .await
+                    .unwrap();
                 new_table_added.store(true, std::sync::atomic::Ordering::Relaxed);
                 info!("Persist to disk in {:?}", start.elapsed());
             });

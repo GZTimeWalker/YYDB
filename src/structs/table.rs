@@ -10,8 +10,8 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
 use std::fmt::{Formatter, LowerHex};
 use std::hash::{Hash, Hasher};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct TableId(pub u64);
@@ -259,7 +259,7 @@ mod tests {
         assert_eq!(table.id(), TableId::new(test_dir));
 
         const TEST_SIZE: u64 = 6400;
-        const RANDOM_TEST_SIZE: usize = TEST_SIZE as usize / 3;
+        const RANDOM_TEST_SIZE: usize = TEST_SIZE as usize / 2;
 
         const DATA_SIZE: usize = 240;
         const NUMBER_TESTS: usize = 200;
@@ -288,7 +288,7 @@ mod tests {
         );
 
         debug!(">>> Waiting for flush...");
-        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
         debug!("{:=^80}", " Add More Data ");
 
@@ -310,7 +310,7 @@ mod tests {
         );
 
         debug!(">>> Waiting for flush...");
-        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
+        tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
         // check files
         debug!("{:=^80}", " Check Files ");
@@ -376,12 +376,11 @@ mod tests {
             format!(" Got {} Items ({:?}) ", count, start.elapsed())
         );
 
-        let size_on_disk = table.size_on_disk().await?;
-
-        debug!("Size on disk: {}", human_read_size(size_on_disk));
-
         // test for random key reading
-        debug!("{:=^80}", format!(" Random Read Test ({}) ", RANDOM_TEST_SIZE));
+        debug!(
+            "{:=^80}",
+            format!(" Random Read Test ({}) ", RANDOM_TEST_SIZE)
+        );
 
         let start = std::time::Instant::now();
 
@@ -419,6 +418,10 @@ mod tests {
         debug!("{:=^80}", " NotFound Test ");
 
         assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
+
+        let size_on_disk = table.size_on_disk().await?;
+
+        debug!("Size on disk: {}", human_read_size(size_on_disk));
 
         debug!(
             "{:=^80}",

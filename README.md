@@ -46,4 +46,5 @@ Many design decisions are not well considered, so it may not be a good example f
 
 ## References
 
-- [KipDB](https://github.com/KKould/KipDB)
+- [Chapter 23 Writing a Custom Storage Engine](https://web.archive.org/web/20200617083105/https://dev.mysql.com/doc/internals/en/custom-engine.html)
+- [KipDB - Github](https://github.com/KKould/KipDB)

@@ -18,7 +18,7 @@ pub struct BloomFilter {
 impl BloomFilter {
     pub fn new(level: u32) -> Self {
         Self {
-            filter: GrowableBloom::new(0.005, bloom_size(level)),
+            filter: GrowableBloom::new(0.01, bloom_size(level)),
         }
     }
 
@@ -30,7 +30,7 @@ impl BloomFilter {
 }
 
 fn bloom_size(level: u32) -> usize {
-    let num = MEM_BLOCK_NUM * MERGE_FACTOR.pow(level);
+    let num = MEM_BLOCK_NUM * MERGE_FACTOR.pow(level) * 2;
     if num > MAX_EXPECT_NUM {
         MAX_EXPECT_NUM
     } else {

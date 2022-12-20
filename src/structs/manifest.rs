@@ -162,7 +162,14 @@ impl AsyncToIO for Manifest {
             io.write_u64(key.0).await?;
             // write the meta only
             let meta = table.meta();
-            let bytes = bincode::encode_to_vec(meta, BIN_CODE_CONF)?;
+            let bytes = {
+                let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
+                writer
+                    .write_all(&bincode::encode_to_vec(meta, BIN_CODE_CONF)?)
+                    .await?;
+                writer.shutdown().await?;
+                writer.into_inner()
+            };
             io.write_u32(bytes.len() as u32).await?;
             io.write_all(&bytes).await?;
         }
@@ -211,9 +218,17 @@ impl AsyncFromIO for Manifest {
             }
 
             let size = file_io.read_u32().await?;
-            let mut bytes = vec![0; size as usize];
-            file_io.read_exact(&mut bytes).await?;
-            let meta: SSTableMeta = bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0;
+
+            let meta = {
+                let mut bytes = vec![0; size as usize];
+                file_io.read_exact(&mut bytes).await?;
+
+                let mut reader = CompressionDecoder::new(bytes.as_slice());
+                let mut bytes = Vec::new();
+                reader.read_to_end(&mut bytes).await?;
+
+                bincode::decode_from_slice(&bytes, BIN_CODE_CONF)?.0
+            };
             let table = SSTable::new(meta, &factory, row_size).await?;
             tables.insert(key, Arc::new(table));
         }
