@@ -1,7 +1,7 @@
 use async_compression::Level;
 use async_trait::async_trait;
 use crc32fast::Hasher;
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::btree_map::*;
 use std::io::SeekFrom;
 use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
@@ -19,7 +19,7 @@ use super::manifest::Manifest;
 use super::{kvstore::*, MEM_BLOCK_NUM};
 
 pub type MemStore = BTreeMap<Key, DataStore>;
-pub type MemTableIterator = DequeIterator<KvStore>;
+pub type MemTableIterator = IntoIter<Key, DataStore>;
 
 #[derive(Debug)]
 pub struct MemTable {
@@ -64,7 +64,6 @@ impl MemTable {
 
         self.lock_map_released
             .store(false, std::sync::atomic::Ordering::Relaxed);
-        lock_map.clear();
         std::mem::swap(&mut *mut_map, &mut *lock_map);
     }
 
@@ -116,8 +115,6 @@ impl MemTable {
             })
             .collect();
 
-        lock_map_released.store(true, std::sync::atomic::Ordering::Relaxed);
-
         meta.set_entries_count(data.len());
 
         let gurad_manifest = manifest.read().await;
@@ -127,18 +124,20 @@ impl MemTable {
 
         manifest.write().await.add_table(sstable).await;
 
+        locked_map.write().await.clear();
+        lock_map_released.store(true, std::sync::atomic::Ordering::Relaxed);
+
         Ok(())
     }
 
     pub async fn iter(&self) -> MemTableIterator {
-        let mut_map = self.mut_map.read().await;
-        let lock_map = self.lock_map.read().await;
+        let mut new_map = self.lock_map.read().await.clone();
 
-        let mut cache = VecDeque::with_capacity(mut_map.len() + lock_map.len());
-        cache.extend(mut_map.iter().map(|(k, v)| (*k, v.clone())));
-        cache.extend(lock_map.iter().map(|(k, v)| (*k, v.clone())));
+        for (k, v) in self.mut_map.read().await.iter() {
+            new_map.insert(*k, v.clone());
+        }
 
-        MemTableIterator::new(cache)
+        new_map.into_iter()
     }
 }
 

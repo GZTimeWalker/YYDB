@@ -23,10 +23,7 @@ impl DataStore {
     }
 
     pub fn is_deleted(&self) -> bool {
-        match self {
-            DataStore::Deleted => true,
-            _ => false,
-        }
+        matches!(self, DataStore::Deleted)
     }
 }
 

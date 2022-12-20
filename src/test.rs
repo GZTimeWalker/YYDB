@@ -2,7 +2,7 @@ use rand::{RngCore, SeedableRng};
 
 use crate::{
     structs::{lsm::tests::check_file, *},
-    utils::{error::Result, DataStore, human_read_size},
+    utils::{error::Result, human_read_size, DataStore},
 };
 
 #[test]
@@ -170,7 +170,12 @@ async fn it_works_async() -> Result<()> {
 
         data.extend_from_slice(&rnd_data);
 
-        debug_assert_eq!(next.1.unwrap().as_ref(), &data, "Data mismatch for key {}", next.0);
+        debug_assert_eq!(
+            next.1.unwrap().as_ref(),
+            &data,
+            "Data mismatch for key {}",
+            next.0
+        );
     }
 
     table.end_iter().await;

@@ -138,7 +138,7 @@ impl Table {
                         self.deleted_insert(key).await;
                         continue;
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
             }
         }
@@ -154,7 +154,7 @@ impl Table {
                         self.deleted_insert(key).await;
                         continue;
                     }
-                    _ => unreachable!()
+                    _ => unreachable!(),
                 }
             }
         }

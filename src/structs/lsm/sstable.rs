@@ -124,10 +124,9 @@ impl SSTable {
         let compressed_checksum = compressed_hasher.finalize();
 
         debug!(
-            "Encoded ({}/{}) bytes, {} entries, with checksum ({:08x}/{:08x}), key range: [{}, {}]",
+            "Encoded ({}/{}) bytes with checksum ({:08x}/{:08x}), key range: [{}, {}]",
             bytes_read,
             bytes.len(),
-            entries_count,
             raw_checksum,
             compressed_checksum,
             min_key,
@@ -147,6 +146,13 @@ impl SSTable {
         file_io.write_all(&bytes).await?;
 
         drop(file_io); // release lock
+
+        info!(
+            "Archived {} entries ({} deleted) to {}",
+            entries_count,
+            deleted_count,
+            self.file_name.to_str().unwrap()
+        );
 
         self.iter.lock().await.recreate().await?;
 

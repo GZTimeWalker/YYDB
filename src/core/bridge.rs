@@ -27,7 +27,7 @@ pub fn close_table(id: u64) {
 /// # Safety
 /// mysql will pass a pointer to a buffer, and we need to get data from it
 pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32) {
-    info!(
+    debug!(
         "Inserting row       : [{:3<}]<{}> @{:016x}",
         key, len, table_id
     );
@@ -50,7 +50,7 @@ pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32) {
 /// # Safety
 /// mysql will pass a pointer to a buffer, and we need to get data from it
 pub unsafe fn update_row(table_id: u64, key: u64, _data: *const u8, new_data: *const u8, len: u32) {
-    info!(
+    debug!(
         "Updating row        : [{:3<}]<{}> @{:016x}",
         key, len, table_id
     );
@@ -67,7 +67,7 @@ pub unsafe fn update_row(table_id: u64, key: u64, _data: *const u8, new_data: *c
 }
 
 pub fn delete_row(table_id: u64, key: u64) {
-    info!("Deleting row        : [{:3<}] @{:016x}", key, table_id);
+    debug!("Deleting row        : [{:3<}] @{:016x}", key, table_id);
 
     run_async! {
         if let Some(table) = super::Runtime::global().get_table(&TableId(table_id)).await {
