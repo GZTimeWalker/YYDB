@@ -40,6 +40,9 @@ pub struct Table {
     // new table added
     new_table_added: Arc<AtomicBool>,
 
+    // is iterator in progress
+    iter_in_progress: Arc<AtomicBool>,
+
     // iterators
     memtable_iter: RwLock<Option<MemTableIterator>>,
     lsm_iter: RwLock<Option<LsmTreeIterator>>,
@@ -61,6 +64,7 @@ impl Table {
             manifest: manifest.clone(),
             memtable: MemTable::new(table_name, Some(manifest)).await?,
             new_table_added: Arc::new(AtomicBool::new(false)),
+            iter_in_progress: Arc::new(AtomicBool::new(false)),
             memtable_iter: RwLock::new(None),
             lsm_iter: RwLock::new(None),
             yielded: RwLock::new(None),
@@ -85,12 +89,15 @@ impl Table {
             .await
             .replace(self.manifest.read().await.iter());
         self.yielded.write().await.replace(HashSet::new());
+        self.iter_in_progress.store(true, Ordering::Relaxed);
     }
 
     pub async fn end_iter(&self) {
         self.memtable_iter.write().await.take();
         self.lsm_iter.write().await.take();
         self.yielded.write().await.take();
+        self.iter_in_progress.store(false, Ordering::Relaxed);
+        self.manifest.write().await.do_cleanup();
     }
 
     #[inline]
@@ -119,9 +126,10 @@ impl Table {
             );
 
             let manifest = self.manifest.clone();
+            let iter_in_progress = self.iter_in_progress.clone();
 
             crate::core::runtime::spawn(async move {
-                super::tracker::compact_worker(level, tables, manifest).await
+                super::tracker::compact_worker(level, tables, manifest, iter_in_progress).await
             });
         }
     }

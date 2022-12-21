@@ -12,6 +12,8 @@ pub struct Manifest {
     tables: AvlTreeMap<SSTableKey, Arc<SSTable>>,
     tracker: SSTableTracker,
 
+    cleanup_files: Vec<String>,
+
     pub factory: IOHandlerFactory,
     pub table_id: TableId,
     pub row_size: u32,
@@ -33,9 +35,10 @@ impl Manifest {
                 factory: IOHandlerFactory::new(&table_name),
                 table_id: TableId::new(table_name.to_str().unwrap()),
                 row_size: 0,
+                cleanup_files: Vec::new(),
                 tables: AvlTreeMap::new(),
                 bloom_filter: BloomFilter::new_global(),
-                tracker: SSTableTracker::new(),
+                tracker: SSTableTracker::new()
             })
         })
     }
@@ -79,7 +82,16 @@ impl Manifest {
         for table in tables {
             self.tables.remove(&table.meta().key);
             self.tracker.pop_front(table.meta().key.level());
-            std::fs::remove_file(table.file_name()).ok();
+            self.cleanup_files.push(table.file_name().to_string());
+        }
+    }
+
+    pub fn do_cleanup(&mut self) {
+        if !self.cleanup_files.is_empty() {
+            debug!("Cleanup {} files...", self.cleanup_files.len());
+            for file in self.cleanup_files.drain(..) {
+                std::fs::remove_file(file).ok();
+            }
         }
     }
 }
@@ -245,6 +257,7 @@ impl AsyncFromIO for Manifest {
             tables,
             factory,
             bloom_filter,
+            cleanup_files: Vec::new(),
         })
     }
 }
@@ -252,6 +265,8 @@ impl AsyncFromIO for Manifest {
 impl Drop for Manifest {
     fn drop(&mut self) {
         debug!("Save Manifest       : {:?}", self.io.file_path);
+
+        self.do_cleanup();
 
         futures::executor::block_on(async move {
             self.to_io(&self.io).await.unwrap();

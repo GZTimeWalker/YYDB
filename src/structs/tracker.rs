@@ -1,6 +1,6 @@
 use std::{
     collections::{btree_map::Entry, BTreeMap, HashMap, VecDeque},
-    sync::Arc,
+    sync::{Arc, atomic::{Ordering, AtomicBool}},
 };
 
 use tokio::sync::RwLock;
@@ -38,13 +38,13 @@ macro_rules! impl_deque_pop {
 
 #[derive(Debug)]
 pub struct SSTableTracker {
-    inner: HashMap<SSTableLevel, VecDeque<Arc<SSTable>>>,
+    inner: HashMap<SSTableLevel, VecDeque<Arc<SSTable>>>
 }
 
 impl SSTableTracker {
     pub fn new() -> Self {
         Self {
-            inner: HashMap::new(),
+            inner: HashMap::new()
         }
     }
 
@@ -117,6 +117,7 @@ pub async fn compact_worker(
     level: SSTableLevel,
     tables: SSTableList,
     manifest: Arc<RwLock<Manifest>>,
+    iter_in_progress: Arc<AtomicBool>,
 ) -> Result<()> {
     // TODO: use async write + merge sort instead of all in memory
 
@@ -146,6 +147,11 @@ pub async fn compact_worker(
     let mut gurad_manifest = manifest.write().await;
     gurad_manifest.add_table(sstable).await;
     gurad_manifest.pop_tables(&tables);
+
+    if !iter_in_progress.load(Ordering::Relaxed) {
+        gurad_manifest.do_cleanup();
+    }
+
     drop(gurad_manifest);
 
     Ok(())

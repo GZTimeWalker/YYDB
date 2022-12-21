@@ -147,7 +147,7 @@ impl SSTable {
 
         drop(file_io); // release lock
 
-        info!(
+        debug!(
             "Archived {} entries ({} deleted) to {}",
             entries_count,
             deleted_count,
