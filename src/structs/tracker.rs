@@ -1,6 +1,9 @@
 use std::{
     collections::{btree_map::Entry, BTreeMap, HashMap, VecDeque},
-    sync::{Arc, atomic::{Ordering, AtomicBool}},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 use tokio::sync::RwLock;
@@ -38,13 +41,13 @@ macro_rules! impl_deque_pop {
 
 #[derive(Debug)]
 pub struct SSTableTracker {
-    inner: HashMap<SSTableLevel, VecDeque<Arc<SSTable>>>
+    inner: HashMap<SSTableLevel, VecDeque<Arc<SSTable>>>,
 }
 
 impl SSTableTracker {
     pub fn new() -> Self {
         Self {
-            inner: HashMap::new()
+            inner: HashMap::new(),
         }
     }
 

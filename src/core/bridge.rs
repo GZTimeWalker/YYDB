@@ -29,7 +29,9 @@ pub fn close_table(id: u64) {
 pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32) {
     trace!(
         "Inserting row       : [{:3<}]<{}> @{:016x}",
-        key, len, table_id
+        key,
+        len,
+        table_id
     );
 
     let data = std::slice::from_raw_parts(data, len as usize);
@@ -52,7 +54,9 @@ pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32) {
 pub unsafe fn update_row(table_id: u64, key: u64, _data: *const u8, new_data: *const u8, len: u32) {
     trace!(
         "Updating row        : [{:3<}]<{}> @{:016x}",
-        key, len, table_id
+        key,
+        len,
+        table_id
     );
 
     let new_data = std::slice::from_raw_parts(new_data, len as usize);

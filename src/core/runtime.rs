@@ -4,11 +4,9 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
-use crate::{
-    structs::{
-        table::{Table, TableId},
-        SizedOnDisk,
-    }
+use crate::structs::{
+    table::{Table, TableId},
+    SizedOnDisk,
 };
 
 lazy_static! {

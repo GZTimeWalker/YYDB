@@ -38,7 +38,7 @@ impl Manifest {
                 cleanup_files: Vec::new(),
                 tables: AvlTreeMap::new(),
                 bloom_filter: BloomFilter::new_global(),
-                tracker: SSTableTracker::new()
+                tracker: SSTableTracker::new(),
             })
         })
     }
