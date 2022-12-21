@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use rand::{RngCore, SeedableRng};
 
 use crate::{
@@ -10,6 +12,12 @@ fn it_works() -> Result<()> {
     crate::core::runtime::block_on(it_works_async()) // ensure use one async runtime
 }
 
+const TEST_SIZE: u64 = 16000;
+const RANDOM_TEST_SIZE: usize = 2000;
+
+const DATA_SIZE: usize = 240;
+const NUMBER_TESTS: usize = 200;
+
 async fn it_works_async() -> Result<()> {
     crate::utils::logger::init();
     let test_dir = "helper/table_test";
@@ -17,19 +25,43 @@ async fn it_works_async() -> Result<()> {
     std::fs::remove_dir_all(test_dir).ok();
     std::fs::create_dir_all(test_dir).unwrap();
 
-    let start = std::time::Instant::now();
     let table = Table::open(test_dir.to_string()).await?;
 
     assert_eq!(table.name(), test_dir);
     assert_eq!(table.id(), TableId::new(test_dir));
 
-    const TEST_SIZE: u64 = 16000;
-    const RANDOM_TEST_SIZE: usize = 2000;
+    init_table(&table).await;
 
-    const DATA_SIZE: usize = 240;
-    const NUMBER_TESTS: usize = 200;
+    check_table_files(&table).await?;
 
+    let iter_elapsed = iter_table(&table).await?;
+
+    let seq_elapsed = seq_read_table(&table).await?;
+
+    let rand_elapsed = rand_read_table(&table).await?;
+
+    debug!(
+        "{:=^80}",
+        format!(
+            " Read Test Passed ({:?}/{:?}/{:?}) ",
+            iter_elapsed, seq_elapsed, rand_elapsed
+        )
+    );
+
+    let size_on_disk = table.size_on_disk().await?;
+
+    debug!("Size on disk: {}", human_read_size(size_on_disk));
+
+    assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
+
+    debug!("{:=^80}", " All Test Passed ");
+    Ok(())
+}
+
+async fn init_table(table: &Table) {
     debug!("{:=^80}", " Init Test Data ");
+
+    let start = std::time::Instant::now();
 
     for i in 0..TEST_SIZE / 2 {
         // random with seed i
@@ -56,6 +88,7 @@ async fn it_works_async() -> Result<()> {
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 
     debug!("{:=^80}", " Add More Data ");
+    let start = std::time::Instant::now();
 
     // update some data
     for i in (0..TEST_SIZE / 2).step_by(13) {
@@ -95,10 +128,11 @@ async fn it_works_async() -> Result<()> {
 
     debug!(">>> Waiting for flush...");
     tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+}
 
-    // check files
+async fn check_table_files(table: &Table) -> Result<()> {
     debug!("{:=^80}", " Check Files ");
-    let test_start = std::time::Instant::now();
+    let start = std::time::Instant::now();
 
     for table in table.table_files().await {
         check_file(&table).await?;
@@ -106,45 +140,13 @@ async fn it_works_async() -> Result<()> {
 
     debug!(
         "{:=^80}",
-        format!(" Check Files Done ({:?}) ", test_start.elapsed())
+        format!(" Check Files Done ({:?}) ", start.elapsed())
     );
 
-    debug!("{:=^80}", format!(" Sequential Read Test ({}) ", TEST_SIZE));
-    let start = std::time::Instant::now();
+    Ok(())
+}
 
-    for i in 0..TEST_SIZE {
-        // random with seed i
-        match table.get(i).await? {
-            DataStore::Value(v) => {
-                let mut data = if i % 29 == 0 && i <= TEST_SIZE / 2 {
-                    vec![((i * 2) % 57 + 65) as u8; NUMBER_TESTS]
-                } else {
-                    vec![(i % 57 + 65) as u8; NUMBER_TESTS]
-                };
-
-                let mut rng = rand::rngs::StdRng::seed_from_u64(i);
-                let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
-                rng.fill_bytes(&mut rnd_data);
-
-                data.extend_from_slice(&rnd_data);
-
-                debug_assert_eq!(v.as_ref(), &data, "Data mismatch for key {}", i);
-            }
-            x => {
-                if i % 5 == 0 || i % 29 == 0 {
-                    continue;
-                } else {
-                    panic!("Unexpected value for key {}: {:?}", i, x);
-                }
-            }
-        }
-    }
-
-    debug!(
-        "{:=^80}",
-        format!(" Sequential Read Test Done ({:?}) ", start.elapsed())
-    );
-
+async fn iter_table(table: &Table) -> Result<Duration> {
     debug!("{:=^80}", " Iter Test ");
 
     let start = std::time::Instant::now();
@@ -180,21 +182,64 @@ async fn it_works_async() -> Result<()> {
 
     table.end_iter().await;
 
+    let elapsed = start.elapsed();
+
+    debug!("{:=^80}", format!(" Got {} Items ({:?}) ", count, elapsed));
+
+    Ok(elapsed)
+}
+
+async fn seq_read_table(table: &Table) -> Result<Duration> {
+    debug!("{:=^80}", format!(" Sequential Read Test ({}) ", TEST_SIZE));
+    let start = std::time::Instant::now();
+
+    for i in 0..TEST_SIZE {
+        // random with seed i
+        match table.get(i).await? {
+            DataStore::Value(v) => {
+                let mut data = if i % 29 == 0 && i <= TEST_SIZE / 2 {
+                    vec![((i * 2) % 57 + 65) as u8; NUMBER_TESTS]
+                } else {
+                    vec![(i % 57 + 65) as u8; NUMBER_TESTS]
+                };
+
+                let mut rng = rand::rngs::StdRng::seed_from_u64(i);
+                let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+                rng.fill_bytes(&mut rnd_data);
+
+                data.extend_from_slice(&rnd_data);
+
+                debug_assert_eq!(v.as_ref(), &data, "Data mismatch for key {}", i);
+            }
+            x => {
+                if i % 5 == 0 || i % 29 == 0 {
+                    continue;
+                } else {
+                    panic!("Unexpected value for key {}: {:?}", i, x);
+                }
+            }
+        }
+    }
+
+    let elapsed = start.elapsed();
     debug!(
         "{:=^80}",
-        format!(" Got {} Items ({:?}) ", count, start.elapsed())
+        format!(" Sequential Read Test Done ({:?}) ", elapsed)
     );
 
-    // test for random key reading
+    Ok(elapsed)
+}
+
+async fn rand_read_table(table: &Table) -> Result<Duration> {
     debug!(
         "{:=^80}",
         format!(" Random Read Test ({}) ", RANDOM_TEST_SIZE)
     );
 
     let start = std::time::Instant::now();
+    let mut rng = rand::rngs::StdRng::seed_from_u64(table.id().0);
 
     for _ in 0..RANDOM_TEST_SIZE {
-        let mut rng = rand::rngs::StdRng::seed_from_u64(rand::random());
         let key = rng.next_u64() % TEST_SIZE;
 
         match table.get(key).await? {
@@ -223,22 +268,11 @@ async fn it_works_async() -> Result<()> {
         }
     }
 
+    let elapsed = start.elapsed();
     debug!(
         "{:=^80}",
-        format!(" Random Read Test Done ({:?}) ", start.elapsed())
+        format!(" Random Read Test Done ({:?}) ", elapsed)
     );
 
-    debug!("{:=^80}", " NotFound Test ");
-
-    assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
-
-    let size_on_disk = table.size_on_disk().await?;
-
-    debug!("Size on disk: {}", human_read_size(size_on_disk));
-
-    debug!(
-        "{:=^80}",
-        format!(" All Test Passed ({:?}) ", test_start.elapsed())
-    );
-    Ok(())
+    Ok(elapsed)
 }

@@ -1,4 +1,3 @@
-use async_compression::Level;
 use async_trait::async_trait;
 use avl::AvlTreeMap;
 use std::{collections::VecDeque, io::SeekFrom, path::PathBuf, sync::Arc};
@@ -147,7 +146,7 @@ impl AsyncToIO for Manifest {
         io.write_u32(self.row_size).await?;
 
         let bloom_filter_bytes = {
-            let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
+            let mut writer = CompressionEncoder::with_quality(Vec::new(), COMPRESSION_LEVEL);
             writer
                 .write_all(&bincode::encode_to_vec(&self.bloom_filter, BIN_CODE_CONF)?)
                 .await?;
@@ -163,7 +162,7 @@ impl AsyncToIO for Manifest {
             // write the meta only
             let meta = table.meta();
             let bytes = {
-                let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
+                let mut writer = CompressionEncoder::with_quality(Vec::new(), COMPRESSION_LEVEL);
                 writer
                     .write_all(&bincode::encode_to_vec(meta, BIN_CODE_CONF)?)
                     .await?;

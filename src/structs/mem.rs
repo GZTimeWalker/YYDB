@@ -1,4 +1,3 @@
-use async_compression::Level;
 use async_trait::async_trait;
 use crc32fast::Hasher;
 use std::collections::btree_map::*;
@@ -257,7 +256,7 @@ impl AsyncToIO for MemTable {
         }
 
         let bytes = {
-            let mut writer = CompressionEncoder::with_quality(Vec::new(), Level::Default);
+            let mut writer = CompressionEncoder::with_quality(Vec::new(), COMPRESSION_LEVEL);
             writer
                 .write_all(&bincode::encode_to_vec(cache_map, BIN_CODE_CONF)?)
                 .await?;

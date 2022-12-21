@@ -148,11 +148,9 @@ impl AsyncIterator<KvStore> for SSTableIter {
                 }
             }
 
-            let reader = self.reader.as_mut().unwrap();
-
             if self.buf.len() < self.buf.capacity() {
                 let mut buf = vec![0u8; self.buf.capacity() - self.buf.len()];
-                if let Ok(len) = reader.read(&mut buf).await {
+                if let Ok(len) = self.reader.as_mut().unwrap().read(&mut buf).await {
                     if len == 0 {
                         return Ok(None);
                     }
@@ -168,9 +166,11 @@ impl AsyncIterator<KvStore> for SSTableIter {
                 bincode::decode_from_slice::<KvStore, BincodeConfig>(slice, BIN_CODE_CONF)
                     .map_err(|err| {
                         error!(
-                            "Error decoding data : {:#?} in file {}, {}",
+                            "Error decoding data : {:#?} in file {}, entry {}, offset {}, {}",
                             err,
                             self.io.file_path.display(),
+                            self.entry_cur,
+                            self.bytes_read,
                             hex_view(slice)
                                 .or_else(|_| Result::Ok("< cannot format >".to_string()))
                                 .unwrap()
@@ -247,6 +247,18 @@ pub mod tests {
             raw_checksum, computed_raw_checksum
         );
         assert_eq!(raw_checksum, computed_raw_checksum);
+
+        let mut bytes_read = 0;
+        for _ in 0..entries_count {
+            let (_, offset) = bincode::decode_from_slice::<KvStore, BincodeConfig>(
+                &raw[bytes_read..],
+                BIN_CODE_CONF,
+            )?;
+            bytes_read += offset;
+        }
+
+        debug!("Validating decoded   : {} == {}", bytes_read, raw.len());
+        assert_eq!(bytes_read, raw.len());
 
         debug!(
             "File \"{}\" has {} bytes, {} entries ({} deleted), key range [{}, {}]",

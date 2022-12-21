@@ -104,7 +104,7 @@ impl SSTable {
 
         let mut bytes_read = 0;
         let bytes = {
-            let mut writer = CompressionEncoder::new(Vec::new());
+            let mut writer = CompressionEncoder::with_quality(Vec::new(), COMPRESSION_LEVEL);
             for kvstore in data.iter() {
                 if kvstore.1.is_deleted() {
                     deleted_count += 1;

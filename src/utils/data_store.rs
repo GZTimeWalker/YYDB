@@ -102,7 +102,7 @@ mod tests {
         let mut bytes_read = 0;
 
         let bytes = {
-            let mut writer = CompressionEncoder::new(Vec::new());
+            let mut writer = CompressionEncoder::with_quality(Vec::new(), COMPRESSION_LEVEL);
             for kvstore in data_vec.iter() {
                 let row = bincode::encode_to_vec(kvstore, BIN_CODE_CONF).unwrap();
                 bytes_read += row.len();
@@ -115,7 +115,7 @@ mod tests {
         debug!("Length for DataStore Test: {}/{}", bytes.len(), bytes_read);
 
         let buffer = {
-            let mut writer = CompressionEncoder::new(Vec::new());
+            let mut writer = CompressionEncoder::with_quality(Vec::new(), COMPRESSION_LEVEL);
             writer.write_all(&bytes).await?;
             writer.shutdown().await?;
             writer.into_inner()

@@ -8,6 +8,7 @@ pub mod error;
 pub mod io_handler;
 pub mod logger;
 
+use async_compression::Level;
 use bincode::config::*;
 use std::fmt::Write;
 
@@ -20,6 +21,7 @@ pub use macros::*;
 
 pub type CompressionEncoder<T> = async_compression::tokio::write::DeflateEncoder<T>;
 pub type CompressionDecoder<T> = async_compression::tokio::bufread::DeflateDecoder<T>;
+pub const COMPRESSION_LEVEL: Level = Level::Default;
 
 pub type BincodeConfig = Configuration;
 pub const BIN_CODE_CONF: BincodeConfig = bincode::config::standard();
