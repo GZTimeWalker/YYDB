@@ -1,10 +1,12 @@
+use console::style;
+use indicatif::HumanBytes;
 use std::time::Duration;
 
 use rand::{RngCore, SeedableRng};
 
 use crate::{
     structs::{lsm::tests::check_file, *},
-    utils::{error::Result, human_read_size, DataStore},
+    utils::{error::Result, new_progress_bar, DataStore},
 };
 
 #[test]
@@ -12,8 +14,10 @@ fn it_works() -> Result<()> {
     crate::core::runtime::block_on(it_works_async()) // ensure use one async runtime
 }
 
-const TEST_SIZE: u64 = 16000;
-const RANDOM_TEST_SIZE: usize = 2000;
+const TEST_SIZE: u64 = 100000;
+const RANDOM_TEST_SIZE: u64 = 200;
+const FLUSH_INTERVAL: Duration = Duration::from_millis(700);
+const ITER_COUNT: u64 = 98734;
 
 const DATA_SIZE: usize = 240;
 const NUMBER_TESTS: usize = 200;
@@ -40,29 +44,33 @@ async fn it_works_async() -> Result<()> {
 
     let rand_elapsed = rand_read_table(&table).await?;
 
-    debug!(
+    info!(
         "{:=^80}",
-        format!(
+        style(format!(
             " Read Test Passed ({:?}/{:?}/{:?}) ",
             iter_elapsed, seq_elapsed, rand_elapsed
-        )
+        ))
+        .green()
     );
 
     let size_on_disk = table.size_on_disk().await?;
 
-    debug!("Size on disk: {}", human_read_size(size_on_disk));
+    info!(
+        "Size on disk: {}",
+        style(HumanBytes(size_on_disk).to_string()).green().bold()
+    );
 
     assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
 
-    debug!("{:=^80}", " All Test Passed ");
+    info!("{:=^80}", style(" All Test Passed ").green());
     Ok(())
 }
 
 async fn init_table(table: &Table) {
-    debug!("{:=^80}", " Init Test Data ");
-
+    info!("{:=^80}", style(" Init Test Data ").yellow());
     let start = std::time::Instant::now();
 
+    let bar = new_progress_bar(TEST_SIZE / 2);
     for i in 0..TEST_SIZE / 2 {
         // random with seed i
         let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
@@ -73,24 +81,30 @@ async fn init_table(table: &Table) {
 
         data.extend_from_slice(&rnd_data);
         table.set(i, data).await;
+        bar.inc(1);
     }
+    bar.finish();
 
+    let bar = new_progress_bar(TEST_SIZE / 10);
     for i in (0..TEST_SIZE / 2).step_by(5) {
         table.delete(i).await;
+        bar.inc(1);
     }
+    bar.finish();
 
-    debug!(
+    info!(
         "{:=^80}",
-        format!(" Init Test Data Done ({:?}) ", start.elapsed())
+        style(format!(" Init Test Data Done ({:?}) ", start.elapsed())).green()
     );
 
-    debug!(">>> Waiting for flush...");
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    info!("{}", style(">>> Waiting for flush...").cyan().bold());
+    tokio::time::sleep(FLUSH_INTERVAL).await;
 
-    debug!("{:=^80}", " Add More Data ");
+    info!("{:=^80}", style(" Add More Data ").yellow());
     let start = std::time::Instant::now();
 
     // update some data
+    let bar = new_progress_bar(TEST_SIZE / 26);
     for i in (0..TEST_SIZE / 2).step_by(13) {
         // random with seed i
         let mut data = vec![((i * 2) % 57 + 65) as u8; NUMBER_TESTS];
@@ -101,14 +115,20 @@ async fn init_table(table: &Table) {
 
         data.extend_from_slice(&rnd_data);
         table.set(i, data).await;
+        bar.inc(1);
     }
+    bar.finish();
 
     // delete some data
+    let bar = new_progress_bar(TEST_SIZE / 29);
     for i in (0..TEST_SIZE).step_by(29) {
         table.delete(i).await;
+        bar.inc(1);
     }
+    bar.finish();
 
     // add more data
+    let bar = new_progress_bar(TEST_SIZE / 2);
     for i in TEST_SIZE / 2..TEST_SIZE {
         // random with seed i
         let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
@@ -119,44 +139,48 @@ async fn init_table(table: &Table) {
 
         data.extend_from_slice(&rnd_data);
         table.set(i, data).await;
+        bar.inc(1);
     }
+    bar.finish();
 
-    debug!(
+    info!(
         "{:=^80}",
-        format!(" Add More Data Done ({:?}) ", start.elapsed())
+        style(format!(" Add More Data Done ({:?}) ", start.elapsed())).green()
     );
 
-    debug!(">>> Waiting for flush...");
-    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    info!("{}", style(">>> Waiting for flush...").cyan().bold());
+    tokio::time::sleep(FLUSH_INTERVAL).await;
 }
 
 async fn check_table_files(table: &Table) -> Result<()> {
-    debug!("{:=^80}", " Check Files ");
+    info!("{:=^80}", style(" Check Files ").yellow());
     let start = std::time::Instant::now();
 
     for table in table.table_files().await {
         check_file(&table).await?;
     }
 
-    debug!(
+    info!(
         "{:=^80}",
-        format!(" Check Files Done ({:?}) ", start.elapsed())
+        style(format!(" Check Files Done ({:?}) ", start.elapsed())).green()
     );
 
     Ok(())
 }
 
 async fn iter_table(table: &Table) -> Result<Duration> {
-    debug!("{:=^80}", " Iter Test ");
+    info!("{:=^80}", style(" Iter Test ").yellow());
 
     let start = std::time::Instant::now();
 
     table.init_iter().await;
 
     let mut count = 0;
+    let bar = new_progress_bar(ITER_COUNT);
     while let Some(next) = table.next().await? {
         trace!("Got next item: [{}] -> [{}]", next.0, next.1);
         count += 1;
+        bar.inc(1);
 
         // do check
         let mut data = if next.0 % 29 == 0 && next.0 <= TEST_SIZE / 2 {
@@ -179,22 +203,31 @@ async fn iter_table(table: &Table) -> Result<Duration> {
             next.0
         );
     }
+    bar.finish();
 
     table.end_iter().await;
 
     let elapsed = start.elapsed();
 
-    debug!("{:=^80}", format!(" Got {} Items ({:?}) ", count, elapsed));
+    info!(
+        "{:=^80}",
+        style(format!(" Got {} Items ({:?}) ", count, elapsed)).green()
+    );
 
     Ok(elapsed)
 }
 
 async fn seq_read_table(table: &Table) -> Result<Duration> {
-    debug!("{:=^80}", format!(" Sequential Read Test ({}) ", TEST_SIZE));
+    info!(
+        "{:=^80}",
+        style(format!(" Sequential Read Test ({}) ", TEST_SIZE)).yellow()
+    );
     let start = std::time::Instant::now();
 
+    let bar = new_progress_bar(TEST_SIZE);
     for i in 0..TEST_SIZE {
-        // random with seed i
+        bar.inc(1);
+
         match table.get(i).await? {
             DataStore::Value(v) => {
                 let mut data = if i % 29 == 0 && i <= TEST_SIZE / 2 {
@@ -220,27 +253,30 @@ async fn seq_read_table(table: &Table) -> Result<Duration> {
             }
         }
     }
+    bar.finish();
 
     let elapsed = start.elapsed();
-    debug!(
+    info!(
         "{:=^80}",
-        format!(" Sequential Read Test Done ({:?}) ", elapsed)
+        style(format!(" Sequential Read Test Done ({:?}) ", elapsed)).green()
     );
 
     Ok(elapsed)
 }
 
 async fn rand_read_table(table: &Table) -> Result<Duration> {
-    debug!(
+    info!(
         "{:=^80}",
-        format!(" Random Read Test ({}) ", RANDOM_TEST_SIZE)
+        style(format!(" Random Read Test ({}) ", RANDOM_TEST_SIZE)).yellow()
     );
 
     let start = std::time::Instant::now();
     let mut rng = rand::rngs::StdRng::seed_from_u64(table.id().0);
 
+    let bar = new_progress_bar(RANDOM_TEST_SIZE);
     for _ in 0..RANDOM_TEST_SIZE {
         let key = rng.next_u64() % TEST_SIZE;
+        bar.inc(1);
 
         match table.get(key).await? {
             DataStore::Value(v) => {
@@ -267,11 +303,12 @@ async fn rand_read_table(table: &Table) -> Result<Duration> {
             }
         }
     }
+    bar.finish();
 
     let elapsed = start.elapsed();
-    debug!(
+    info!(
         "{:=^80}",
-        format!(" Random Read Test Done ({:?}) ", elapsed)
+        style(format!(" Random Read Test Done ({:?}) ", elapsed)).green()
     );
 
     Ok(elapsed)

@@ -1,6 +1,6 @@
 [package]
 name = "yydb"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 authors = [
     "GZTime <Time.GZ@outlook.com>",
@@ -27,6 +27,8 @@ async-trait = "0.1"
 chrono = "0.4"
 async-compression = { version = "0.3", features = ["tokio", "deflate"] }
 lazy_static = "1"
+indicatif = "0.17"
+console = "0.15"
 tokio = { version = "1", features = [
     "rt-multi-thread",
     "sync",

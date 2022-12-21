@@ -14,4 +14,4 @@ pub const CACHE_MAGIC_NUMBER: u32 = u32::from_be_bytes(*b"YYCA");
 pub const SSTABLE_MAGIC_NUMBER: u32 = u32::from_be_bytes(*b"YYST");
 
 pub const MEM_BLOCK_NUM: usize = 0x80;
-pub const TABLE_COMPACT_THRESHOLD: usize = 4;
+pub const TABLE_COMPACT_THRESHOLD: usize = 3;

@@ -84,7 +84,7 @@ impl MemTable {
                     .await
                     .unwrap();
                 new_table_added.store(true, std::sync::atomic::Ordering::Relaxed);
-                debug!("Persist to disk in {:?}", start.elapsed());
+                trace!("Persist to disk in {:?}", start.elapsed());
             });
         }
     }

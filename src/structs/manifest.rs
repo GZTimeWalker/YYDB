@@ -88,7 +88,7 @@ impl Manifest {
 
     pub fn do_cleanup(&mut self) {
         if !self.cleanup_files.is_empty() {
-            debug!("Cleanup {} files...", self.cleanup_files.len());
+            trace!("Cleanup {} files...", self.cleanup_files.len());
             for file in self.cleanup_files.drain(..) {
                 std::fs::remove_file(file).ok();
             }

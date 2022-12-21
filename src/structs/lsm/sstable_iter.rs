@@ -1,3 +1,4 @@
+use bincode::error::DecodeError;
 use crc32fast::Hasher;
 use futures::Future;
 use std::{collections::VecDeque, io::SeekFrom};
@@ -54,6 +55,11 @@ impl SSTableIter {
         Ok(iter)
     }
 
+    #[inline]
+    pub async fn clone_io(&self) -> Result<IOHandler> {
+        self.io.clone().await
+    }
+
     pub async fn recreate(&mut self) -> Result<()> {
         let mut file_io = self.io.inner().await?;
 
@@ -78,25 +84,11 @@ impl SSTableIter {
         self.min_key = file_io.read_u64().await?;
         self.max_key = file_io.read_u64().await?;
 
-        debug!("Recreated Iter      : {:?}", self.io.file_path);
+        trace!("Recreated Iter      : {:?}", self.io.file_path);
         Ok(())
     }
 
-    #[inline]
     pub async fn init_iter(&mut self) -> Result<()> {
-        self.init_iter_for_key(0).await
-    }
-
-    pub async fn init_iter_for_key(&mut self, key: Key) -> Result<()> {
-        if let Some(last_key) = self.last_entry_key {
-            if last_key < key {
-                trace!("Iter for further key: [{}]", key);
-                return Ok(());
-            }
-        }
-
-        trace!("Init Iter for key   : [{}]: {:?}", key, self.io.file_path);
-
         self.entry_cur = 0;
         self.hasher.replace(Hasher::new());
         self.last_entry_key = None;
@@ -111,8 +103,39 @@ impl SSTableIter {
         Ok(())
     }
 
-    pub async fn clone_io(&self) -> Result<IOHandler> {
-        self.io.clone().await
+    pub async fn init_iter_for_key(&mut self, key: Key) -> Result<()> {
+        if let Some(last_key) = self.last_entry_key {
+            if last_key < key {
+                trace!("Iter for further key: [{}]", key);
+                return Ok(());
+            }
+        }
+
+        trace!("Init Iter for key   : [{}]: {:?}", key, self.io.file_path);
+        self.init_iter().await
+    }
+
+    async fn fetch_more(&mut self) -> usize {
+        let mut buf = vec![0u8; self.buf.capacity() - self.buf.len()];
+        if let Some(reader) = self.reader.as_mut() {
+            if let Ok(len) = reader.read(&mut buf).await {
+                self.bytes_read += len;
+                if let Some(hasher) = self.hasher.as_mut() {
+                    hasher.update(&buf[..len]);
+                } else {
+                    warn!("Hasher is not initialized");
+                    self.hasher.replace(Hasher::new());
+                    self.hasher.as_mut().unwrap().update(&buf[..len]);
+                }
+                self.buf.extend(&buf[..len]);
+                len
+            } else {
+                0
+            }
+        } else {
+            warn!("Reader is not initialized");
+            0
+        }
     }
 }
 
@@ -122,7 +145,7 @@ impl AsyncIterator<KvStore> for SSTableIter {
     fn next(&mut self) -> Self::NextFuture<'_> {
         async {
             if self.entry_cur >= self.entries_count {
-                debug!(
+                trace!(
                     "Decoded {} bytes ({}/{}) with checksum {:08x} from file {}",
                     self.bytes_read,
                     self.entry_cur,
@@ -146,48 +169,52 @@ impl AsyncIterator<KvStore> for SSTableIter {
                         self.io.file_path.display()
                     );
                 }
+
+                return Ok(None);
             }
 
-            if self.buf.len() < self.buf.capacity() {
-                let mut buf = vec![0u8; self.buf.capacity() - self.buf.len()];
-                if let Ok(len) = self.reader.as_mut().unwrap().read(&mut buf).await {
-                    if len == 0 {
-                        return Ok(None);
-                    }
-                    self.bytes_read += len;
-                    self.hasher.as_mut().unwrap().update(&buf[..len]);
-                    self.buf.extend(&buf[..len]);
+            let data_store = loop {
+                if self.fetch_more().await == 0 {
+                    return Ok(None);
                 }
-            }
 
-            let slice = self.buf.make_contiguous();
+                let slice = self.buf.make_contiguous();
 
-            let (data_store, offset) =
-                bincode::decode_from_slice::<KvStore, BincodeConfig>(slice, BIN_CODE_CONF)
-                    .map_err(|err| {
-                        error!(
-                            "Error decoding data : {:#?} in file {}, entry {}, offset {}, {}",
-                            err,
-                            self.io.file_path.display(),
-                            self.entry_cur,
-                            self.bytes_read,
-                            hex_view(slice)
+                match bincode::decode_from_slice::<KvStore, BincodeConfig>(slice, BIN_CODE_CONF) {
+                    Ok((data_store, offset)) => {
+                        trace!(
+                            "Decoded data        : [{}] -> [{}], {}",
+                            data_store.0,
+                            data_store.1,
+                            hex_view(&slice[..offset])
                                 .or_else(|_| Result::Ok("< cannot format >".to_string()))
                                 .unwrap()
                         );
-                        err
-                    })?;
 
-            trace!(
-                "Decoded data        : [{}] -> [{}], {}",
-                data_store.0,
-                data_store.1,
-                hex_view(&slice[..offset])?
-            );
+                        self.entry_cur += 1;
+                        self.buf.drain(..offset);
+                        self.last_entry_key.replace(data_store.0);
 
-            self.entry_cur += 1;
-            self.buf.drain(..offset);
-            self.last_entry_key.replace(data_store.0);
+                        break data_store;
+                    }
+                    Err(err) => match err {
+                        DecodeError::UnexpectedEnd { .. } => continue,
+                        _ => {
+                            error!(
+                                "Error decoding data : {:#?} in file {}, entry {}, offset {}, {}",
+                                err,
+                                self.io.file_path.display(),
+                                self.entry_cur,
+                                self.bytes_read,
+                                hex_view(slice)
+                                    .or_else(|_| Result::Ok("< cannot format >".to_string()))
+                                    .unwrap()
+                            );
+                            return Ok(None);
+                        }
+                    },
+                }
+            };
 
             Ok(Some(data_store))
         }
@@ -198,11 +225,11 @@ impl AsyncIterator<KvStore> for SSTableIter {
 pub mod tests {
     use super::*;
     use crate::structs::SSTABLE_MAGIC_NUMBER;
+    use console::style;
+    use indicatif::HumanBytes;
     use tokio::fs::File;
 
     pub async fn check_file(file_name: &str) -> Result<()> {
-        debug!("Checking sstable file {}", file_name);
-
         let mut file = File::open(file_name).await?;
 
         let magic_number = file.read_u32().await?;
@@ -227,12 +254,6 @@ pub mod tests {
         hasher.update(&bytes);
         let computed_compressed_checksum = hasher.finalize();
 
-        debug!(
-            "Validating checksums : {:08x} == {:08x}",
-            compressed_checksum, computed_compressed_checksum
-        );
-        assert_eq!(compressed_checksum, computed_compressed_checksum);
-
         let mut raw = Vec::new();
         CompressionDecoder::new(bytes.as_slice())
             .read_to_end(&mut raw)
@@ -241,12 +262,6 @@ pub mod tests {
         let mut hasher = Hasher::new();
         hasher.update(&raw);
         let computed_raw_checksum = hasher.finalize();
-
-        debug!(
-            "Validating checksums : {:08x} == {:08x}",
-            raw_checksum, computed_raw_checksum
-        );
-        assert_eq!(raw_checksum, computed_raw_checksum);
 
         let mut bytes_read = 0;
         for _ in 0..entries_count {
@@ -257,12 +272,30 @@ pub mod tests {
             bytes_read += offset;
         }
 
-        debug!("Validating decoded   : {} == {}", bytes_read, raw.len());
+        assert_eq!(compressed_checksum, computed_compressed_checksum);
+        assert_eq!(raw_checksum, computed_raw_checksum);
         assert_eq!(bytes_read, raw.len());
 
-        debug!(
-            "File \"{}\" has {} bytes, {} entries ({} deleted), key range [{}, {}]",
-            file_name, bytes_total, entries_count, deleted, min_key, max_key
+        info!(
+            "{} File {}, size ({}/{})",
+            style("✔").green().bold(),
+            style(file_name).yellow(),
+            style(HumanBytes(bytes_total as u64).to_string())
+                .cyan()
+                .bold(),
+            style(HumanBytes(raw.len() as u64).to_string())
+                .cyan()
+                .bold()
+        );
+
+        info!(
+            "  with {} entries ({} deleted), key [{},{}], checksums {:08x}/{:08x}",
+            style(entries_count).cyan().bold(),
+            style(deleted).cyan().bold(),
+            style(min_key).green().bold(),
+            style(max_key).green().bold(),
+            style(compressed_checksum).bold(),
+            style(raw_checksum).bold()
         );
 
         Ok(())

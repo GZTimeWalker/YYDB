@@ -85,7 +85,7 @@ impl SSTable {
 
     #[inline]
     pub async fn new_iter(&self) -> Result<SSTableIter> {
-        debug!("New iter for sstable: {:?}", self.file_name);
+        trace!("New iter for sstable: {:?}", self.file_name);
         let io = self.iter.lock().await.clone_io().await?;
         SSTableIter::new(io, self.data_size).await
     }
@@ -123,15 +123,17 @@ impl SSTable {
         compressed_hasher.update(&bytes);
         let compressed_checksum = compressed_hasher.finalize();
 
-        debug!(
-            "Encoded ({}/{}) bytes with checksum ({:08x}/{:08x}), key range: [{}, {}]",
-            bytes_read,
-            bytes.len(),
-            raw_checksum,
-            compressed_checksum,
-            min_key,
-            max_key
-        );
+        if self.meta.key.level() > 0 {
+            debug!(
+                "Encoded ({}/{}) bytes with checksum ({:08x}/{:08x}), key range: [{}, {}]",
+                bytes_read,
+                bytes.len(),
+                raw_checksum,
+                compressed_checksum,
+                min_key,
+                max_key
+            );
+        }
 
         let io = self.iter.lock().await.clone_io().await?;
         let mut file_io = io.inner().await?;
@@ -147,12 +149,14 @@ impl SSTable {
 
         drop(file_io); // release lock
 
-        debug!(
-            "Archived {} entries ({} deleted) to {}",
-            entries_count,
-            deleted_count,
-            self.file_name.to_str().unwrap()
-        );
+        if self.meta.key.level() > 0 {
+            debug!(
+                "Archived {} entries ({} deleted) to {}",
+                entries_count,
+                deleted_count,
+                self.file_name.to_str().unwrap()
+            );
+        }
 
         self.iter.lock().await.recreate().await?;
 

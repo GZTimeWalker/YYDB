@@ -1,5 +1,6 @@
 use futures::Future;
-use std::{collections::BTreeMap, sync::Arc};
+use indicatif::HumanBytes;
+use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
@@ -7,8 +8,7 @@ use crate::{
     structs::{
         table::{Table, TableId},
         SizedOnDisk,
-    },
-    utils::human_read_size,
+    }
 };
 
 lazy_static! {
@@ -113,7 +113,7 @@ impl Runtime {
         } else if let Ok(table) = Table::open(table_name).await {
             info!(
                 "Table opened        : {}",
-                human_read_size(table.size_on_disk().await.unwrap())
+                HumanBytes(table.size_on_disk().await.unwrap()).to_string()
             );
             let id = table.id();
             self.tables.write().await.insert(id, Arc::new(table));
@@ -145,6 +145,12 @@ impl Runtime {
     #[inline(always)]
     pub async fn close_all_tables(&self) {
         self.tables.write().await.clear();
+    }
+
+    /// Shutdown the runtime.
+    #[inline(always)]
+    pub async fn shutdown(self) {
+        self.tokio_rt.shutdown_timeout(Duration::from_secs(1));
     }
 }
 

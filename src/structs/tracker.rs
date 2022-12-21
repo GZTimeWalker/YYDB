@@ -151,7 +151,6 @@ pub async fn compact_worker(
     if !iter_in_progress.load(Ordering::Relaxed) {
         gurad_manifest.do_cleanup();
     }
-
     drop(gurad_manifest);
 
     Ok(())
