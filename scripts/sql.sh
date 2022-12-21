@@ -4,7 +4,7 @@ set -eux;
 
 # ALTER USER 'root'@'localhost' IDENTIFIED WITH mysql_native_password BY '';
 
-mysql -uroot -e "SET binlog_format = 'STATEMENT';" || true
+mysql -uroot -e "SET GLOBAL binlog_format = 'STATEMENT';" || true
 
 if [[ $(mysql -uroot -e "SHOW PLUGINS" | grep yydb | wc -l) -eq 0 ]] ; then
     mysql -uroot -e "INSTALL PLUGIN yydb SONAME 'ha_yydb.so'"
