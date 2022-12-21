@@ -27,7 +27,7 @@ pub fn close_table(id: u64) {
 /// # Safety
 /// mysql will pass a pointer to a buffer, and we need to get data from it
 pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32) {
-    debug!(
+    trace!(
         "Inserting row       : [{:3<}]<{}> @{:016x}",
         key, len, table_id
     );
@@ -50,7 +50,7 @@ pub unsafe fn insert_row(table_id: u64, key: u64, data: *const u8, len: u32) {
 /// # Safety
 /// mysql will pass a pointer to a buffer, and we need to get data from it
 pub unsafe fn update_row(table_id: u64, key: u64, _data: *const u8, new_data: *const u8, len: u32) {
-    debug!(
+    trace!(
         "Updating row        : [{:3<}]<{}> @{:016x}",
         key, len, table_id
     );
@@ -67,7 +67,7 @@ pub unsafe fn update_row(table_id: u64, key: u64, _data: *const u8, new_data: *c
 }
 
 pub fn delete_row(table_id: u64, key: u64) {
-    debug!("Deleting row        : [{:3<}] @{:016x}", key, table_id);
+    trace!("Deleting row        : [{:3<}] @{:016x}", key, table_id);
 
     run_async! {
         if let Some(table) = super::Runtime::global().get_table(&TableId(table_id)).await {
@@ -88,7 +88,7 @@ pub unsafe fn put_hex(data: *const u8, len: u32) {
 pub fn rnd_init(table_id: u64) {
     run_async! {
         if let Some(table) = super::Runtime::global().get_table(&TableId(table_id)).await {
-            debug!("Init iter round     : @{:016x}", table_id);
+            trace!("Init iter round     : @{:016x}", table_id);
             table.init_iter().await;
         } else {
             warn!("Table not found     : @{:016x}", table_id);
@@ -99,7 +99,7 @@ pub fn rnd_init(table_id: u64) {
 pub fn rnd_end(table_id: u64) {
     run_async! {
         if let Some(table) = super::Runtime::global().get_table(&TableId(table_id)).await {
-            debug!("End iter round      : @{:016x}", table_id);
+            trace!("End iter round      : @{:016x}", table_id);
             table.end_iter().await;
         } else {
             warn!("Table not found     : @{:016x}", table_id);
@@ -114,7 +114,7 @@ pub unsafe fn rnd_next(table_id: u64, buf: *mut u8, len: u32) -> i32 {
 
     run_async! {
         if let Some(table) = super::Runtime::global().get_table(&TableId(table_id)).await {
-            debug!("Read next row       : @{:016x}", table_id);
+            trace!("Read next row       : @{:016x}", table_id);
             match table.next().await {
                 Ok(Some((_, DataStore::Value(value)))) => {
                     let value = value.as_slice();

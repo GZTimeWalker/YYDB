@@ -58,7 +58,7 @@ impl SSTableIter {
         let mut file_io = self.io.inner().await?;
 
         if file_io.metadata().await?.len() < HEADER_SIZE {
-            debug!("Empty Iter          : {:?}", self.io.file_path);
+            trace!("Empty Iter          : {:?}", self.io.file_path);
             return Ok(());
         }
 
