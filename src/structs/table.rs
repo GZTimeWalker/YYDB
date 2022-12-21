@@ -213,9 +213,12 @@ impl AsyncKvStoreWrite for Table {
         self.memtable.set(key, value).await;
         self.memtable.do_persist(self.new_table_added.clone()).await;
 
-        if self.new_table_added.load(Ordering::Relaxed) {
+        if self
+            .new_table_added
+            .compare_exchange(true, false, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+        {
             trace!("New table added, compacting...");
-            self.new_table_added.store(false, Ordering::Relaxed);
             self.compact().await;
         }
     }
