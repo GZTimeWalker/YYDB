@@ -20,8 +20,8 @@ pub use error::*;
 pub use io_handler::*;
 pub use macros::*;
 
-pub type CompressionEncoder<T> = async_compression::tokio::write::DeflateEncoder<T>;
-pub type CompressionDecoder<T> = async_compression::tokio::bufread::DeflateDecoder<T>;
+pub type CompressionEncoder<T> = async_compression::tokio::write::ZstdEncoder<T>;
+pub type CompressionDecoder<T> = async_compression::tokio::bufread::ZstdDecoder<T>;
 pub const COMPRESSION_LEVEL: Level = Level::Default;
 
 pub type BincodeConfig = Configuration;

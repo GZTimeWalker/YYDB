@@ -15,12 +15,12 @@ fn it_works() -> Result<()> {
 }
 
 const TEST_SIZE: u64 = 100000;
-const RANDOM_TEST_SIZE: u64 = 200;
-const FLUSH_INTERVAL: Duration = Duration::from_millis(700);
+const RANDOM_TEST_SIZE: u64 = 100;
+const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
 const ITER_COUNT: u64 = 98734;
 
-const DATA_SIZE: usize = 240;
-const NUMBER_TESTS: usize = 200;
+const DATA_SIZE: usize = 600;
+const NUMBER_SIZE: usize = 400;
 
 async fn it_works_async() -> Result<()> {
     crate::utils::logger::init();
@@ -73,10 +73,10 @@ async fn init_table(table: &Table) {
     let bar = new_progress_bar(TEST_SIZE / 2);
     for i in 0..TEST_SIZE / 2 {
         // random with seed i
-        let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
+        let mut data = vec![(i % 57 + 65) as u8; NUMBER_SIZE];
 
         let mut rng = rand::rngs::StdRng::seed_from_u64(i);
-        let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+        let mut rnd_data = vec![0; DATA_SIZE - NUMBER_SIZE];
         rng.fill_bytes(&mut rnd_data);
 
         data.extend_from_slice(&rnd_data);
@@ -107,10 +107,10 @@ async fn init_table(table: &Table) {
     let bar = new_progress_bar(TEST_SIZE / 26);
     for i in (0..TEST_SIZE / 2).step_by(13) {
         // random with seed i
-        let mut data = vec![((i * 2) % 57 + 65) as u8; NUMBER_TESTS];
+        let mut data = vec![((i * 2) % 57 + 65) as u8; NUMBER_SIZE];
 
         let mut rng = rand::rngs::StdRng::seed_from_u64(i);
-        let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+        let mut rnd_data = vec![0; DATA_SIZE - NUMBER_SIZE];
         rng.fill_bytes(&mut rnd_data);
 
         data.extend_from_slice(&rnd_data);
@@ -131,10 +131,10 @@ async fn init_table(table: &Table) {
     let bar = new_progress_bar(TEST_SIZE / 2);
     for i in TEST_SIZE / 2..TEST_SIZE {
         // random with seed i
-        let mut data = vec![(i % 57 + 65) as u8; NUMBER_TESTS];
+        let mut data = vec![(i % 57 + 65) as u8; NUMBER_SIZE];
 
         let mut rng = rand::rngs::StdRng::seed_from_u64(i);
-        let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+        let mut rnd_data = vec![0; DATA_SIZE - NUMBER_SIZE];
         rng.fill_bytes(&mut rnd_data);
 
         data.extend_from_slice(&rnd_data);
@@ -184,13 +184,13 @@ async fn iter_table(table: &Table) -> Result<Duration> {
 
         // do check
         let mut data = if next.0 % 29 == 0 && next.0 <= TEST_SIZE / 2 {
-            vec![((next.0 * 2) % 57 + 65) as u8; NUMBER_TESTS]
+            vec![((next.0 * 2) % 57 + 65) as u8; NUMBER_SIZE]
         } else {
-            vec![(next.0 % 57 + 65) as u8; NUMBER_TESTS]
+            vec![(next.0 % 57 + 65) as u8; NUMBER_SIZE]
         };
 
         let mut rng = rand::rngs::StdRng::seed_from_u64(next.0);
-        let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+        let mut rnd_data = vec![0; DATA_SIZE - NUMBER_SIZE];
 
         rng.fill_bytes(&mut rnd_data);
 
@@ -231,13 +231,13 @@ async fn seq_read_table(table: &Table) -> Result<Duration> {
         match table.get(i).await? {
             DataStore::Value(v) => {
                 let mut data = if i % 29 == 0 && i <= TEST_SIZE / 2 {
-                    vec![((i * 2) % 57 + 65) as u8; NUMBER_TESTS]
+                    vec![((i * 2) % 57 + 65) as u8; NUMBER_SIZE]
                 } else {
-                    vec![(i % 57 + 65) as u8; NUMBER_TESTS]
+                    vec![(i % 57 + 65) as u8; NUMBER_SIZE]
                 };
 
                 let mut rng = rand::rngs::StdRng::seed_from_u64(i);
-                let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+                let mut rnd_data = vec![0; DATA_SIZE - NUMBER_SIZE];
                 rng.fill_bytes(&mut rnd_data);
 
                 data.extend_from_slice(&rnd_data);
@@ -281,13 +281,13 @@ async fn rand_read_table(table: &Table) -> Result<Duration> {
         match table.get(key).await? {
             DataStore::Value(v) => {
                 let mut data = if key % 13 == 0 && key <= TEST_SIZE / 2 {
-                    vec![((key * 2) % 57 + 65) as u8; NUMBER_TESTS]
+                    vec![((key * 2) % 57 + 65) as u8; NUMBER_SIZE]
                 } else {
-                    vec![(key % 57 + 65) as u8; NUMBER_TESTS]
+                    vec![(key % 57 + 65) as u8; NUMBER_SIZE]
                 };
 
                 let mut rng = rand::rngs::StdRng::seed_from_u64(key);
-                let mut rnd_data = vec![0; DATA_SIZE - NUMBER_TESTS];
+                let mut rnd_data = vec![0; DATA_SIZE - NUMBER_SIZE];
                 rng.fill_bytes(&mut rnd_data);
 
                 data.extend_from_slice(&rnd_data);
