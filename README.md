@@ -141,8 +141,6 @@ mysql> select * from test limit 5; -- iter directly, order by the timestamp and 
 5 rows in set (0.00 sec)
 ```
 
-*Note: Even though we need to define a primary key, we don't implement an index, so we can't do a quick lookup by primary key. The reason for adding a primary key is simply because our storage implementation is based on key-value pairs.*
-
 - Storage directory
 
 ```log
@@ -160,6 +158,14 @@ drwxr-x--- 3 dev dev 4.0K Dec 21 10:54 ..
 -rw-r----- 1 dev dev  402 Dec 21 11:14 .cache
 -rw-r----- 1 dev dev 611K Dec 21 11:14 .meta
 ```
+
+- _**Note:**_
+
+  - Even though we need to define a primary key, we don't implement an index, so we can't do a quick lookup by primary key.
+
+  - The reason for adding a primary key is simply because our storage implementation is based on key-value pairs.
+
+  - To make the implementation simple, we assume that the primary keys are data that can be converted to u64.
 
 ## Note
 
