@@ -38,6 +38,12 @@ We provide a [Dev Container](https://code.visualstudio.com/docs/remote/container
 
 Then you can simply run `scripts/depoly.sh && scripts/build.sh` to build the project.
 
+## Performance test
+
+_Test environment: MacOS 13 with SSD_
+
+![](./assets/test.png)
+
 ## Demo
 
 - Do something
