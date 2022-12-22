@@ -14,13 +14,17 @@ description = "YYDB Rust Core for MySQL"
 [lib]
 crate-type = ["rlib", "staticlib"]
 
+[features]
+default = []
+mysql = []
+
 [dependencies]
 cxx = "1.0"
 log = "0.4"
 rand = "0.8"
 futures = "0.3"
 avl = "0.6"
-growable-bloom-filter = "2.0.1"
+growable-bloom-filter = "2"
 bincode = { version = "2.0.0-rc.2", features = ["serde"] }
 crc32fast = "1.3"
 async-trait = "0.1"

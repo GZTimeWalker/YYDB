@@ -1,4 +1,4 @@
-//! Ref: https://docs.rs/bincode/2.0.0-rc.2/bincode/index.html
+//! Ref: <https://docs.rs/bincode/2.0.0-rc.2/bincode/index.html>
 
 use std::fmt::Formatter;
 

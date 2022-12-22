@@ -37,9 +37,9 @@ $COPY_CMD $WORK_DIR/src/handler/*.cc $DEST
 # if a argument --debug is passed, build with debug log level
 touch $WORK_DIR/src/utils/logger.rs
 if [[ $1 == "--debug" ]] ; then
-    cargo build --release --config 'env.LOG_LEVEL = "debug"'
+    cargo build --release --config 'env.LOG_LEVEL = "debug"' --features "mysql"
 else
-    cargo build --release --config 'env.LOG_LEVEL = "info"'
+    cargo build --release --config 'env.LOG_LEVEL = "info"' --features "mysql"
 fi
 
 $COPY_CMD $WORK_DIR/target/release/libyydb.a $DEST

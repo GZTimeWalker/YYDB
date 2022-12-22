@@ -10,14 +10,14 @@ extern crate lazy_static;
 #[macro_use]
 mod utils;
 
-#[cfg(not(test))]
+#[cfg(feature = "mysql")]
 mod bridge;
 
 #[cfg(test)]
 mod test;
 
 pub mod core;
-mod structs;
+pub mod structs;
 
 /// Init the rust part of the library, should be called
 /// from C++ code by Mysql plugin init function.

@@ -1,3 +1,0 @@
-[env]
-LOG_LEVEL = "debug"
-RUST_DEBUG = "true"

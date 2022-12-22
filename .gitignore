@@ -1,9 +1,9 @@
 /target
 /Cargo.lock
-/helper
+**/helper
 .vscode/settings.json
-**/.DS_Store
-nohup.out
-**/*.yyt
-.gdb_history
 
+**/.DS_Store
+
+nohup.out
+.gdb_history

@@ -1,6 +1,6 @@
 use log::{LevelFilter, Metadata, Record};
 
-#[cfg(test)]
+#[cfg(not(feature = "mysql"))]
 lazy_static! {
     static ref LOGGER: Logger = {
         Logger {
@@ -11,7 +11,7 @@ lazy_static! {
     };
 }
 
-#[cfg(not(test))]
+#[cfg(feature = "mysql")]
 lazy_static! {
     static ref LOGGER: Logger = {
         Logger {
