@@ -108,6 +108,7 @@ impl SSTableTracker {
                     table.unlock();
                 }
             } else {
+                compactable.reverse();
                 ret.push((*level, compactable));
             }
         }
@@ -129,6 +130,7 @@ pub async fn compact_worker(
     let mut meta = SSTableMeta::new(key);
 
     for table in tables.iter() {
+        trace!("Compact table: {:?} -> {:?}", table.meta().key, meta.key);
         let mut iter = table.new_iter().await?;
         iter.init_iter().await?;
 

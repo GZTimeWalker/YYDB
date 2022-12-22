@@ -174,7 +174,8 @@ impl AsyncIterator<KvStore> for SSTableIter {
             }
 
             let data_store = loop {
-                if self.fetch_more().await == 0 {
+                // if we have no data in buffer and no more data to fetch, return None
+                if self.fetch_more().await == 0 && self.buf.is_empty() {
                     return Ok(None);
                 }
 

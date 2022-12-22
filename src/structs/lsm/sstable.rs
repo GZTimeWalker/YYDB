@@ -151,10 +151,8 @@ impl SSTable {
 
         if self.meta.key.level() > 0 {
             debug!(
-                "Archived {} entries ({} deleted) to {}",
-                entries_count,
-                deleted_count,
-                self.file_name.to_str().unwrap()
+                "Archived {} entries ({} deleted) to {:?}",
+                entries_count, deleted_count, self.meta.key
             );
         }
 
