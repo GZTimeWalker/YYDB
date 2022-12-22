@@ -159,21 +159,15 @@ drwxr-x--- 3 dev dev 4.0K Dec 21 10:54 ..
 -rw-r----- 1 dev dev 611K Dec 21 11:14 .meta
 ```
 
-- _**Note:**_
-
-  - Even though we need to define a primary key, we don't implement an index, so we can't do a quick lookup by primary key.
-
-  - The reason for adding a primary key is simply because our storage implementation is based on key-value pairs.
-
-  - To make the implementation simple, we assume that the primary keys are data that can be converted to u64.
-
 ## Note
 
 This project is only a **course project**, so it is not well tested and **may have bugs**.
 
 Many design decisions are **not well thought out**, so it may not be a good, high performance, typical implementation.
 
-Even so, it can serve as a good reference and example.
+Even though we need to define a primary key, we don't implement an index, so we can't do a quick lookup by primary key. The reason for adding a primary key is simply because our storage implementation is based on key-value pairs.
+
+To make the implementation simple, we assume that the primary keys are data that can be converted to u64.
 
 ## References
 
