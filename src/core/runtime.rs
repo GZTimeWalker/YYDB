@@ -1,6 +1,6 @@
 use futures::Future;
 use indicatif::HumanBytes;
-use std::{collections::BTreeMap, sync::Arc, time::Duration};
+use std::{collections::BTreeMap, sync::Arc};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
@@ -129,8 +129,10 @@ impl Runtime {
 
     /// Close a table by id.
     #[inline(always)]
-    pub async fn close_table(&self, id: &TableId) -> Option<Arc<Table>> {
-        self.tables.write().await.remove(id)
+    pub async fn close_table(&self, id: &TableId) {
+        if let Some(table) = self.tables.write().await.remove(id) {
+            table.close().await.ok();
+        }
     }
 
     /// insert a table by id.
@@ -145,10 +147,27 @@ impl Runtime {
         self.tables.write().await.clear();
     }
 
-    /// Shutdown the runtime.
+    /// Close the runtime.
     #[inline(always)]
-    pub async fn shutdown(self) {
-        self.tokio_rt.shutdown_timeout(Duration::from_secs(1));
+    pub fn shutdown(&self) {
+        info!("The runtime is shutting down!");
+
+        // take the ownership of tables
+        let mut tables = unsafe {
+            std::ptr::read(&self.tables as *const RwLock<BTreeMap<TableId, Arc<Table>>>)
+                .into_inner()
+        };
+
+        // close all tables
+        tables.clear();
+
+        // take the ownership of the tokio runtime
+        let rt = unsafe { std::ptr::read(&self.tokio_rt as *const tokio::runtime::Runtime) };
+
+        // shutdown the runtime
+        rt.shutdown_background();
+
+        info!("The runtime is shut down!");
     }
 }
 

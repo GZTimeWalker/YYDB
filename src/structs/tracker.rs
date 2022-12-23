@@ -39,18 +39,12 @@ macro_rules! impl_deque_pop {
     };
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SSTableTracker {
     inner: HashMap<SSTableLevel, VecDeque<Arc<SSTable>>>,
 }
 
 impl SSTableTracker {
-    pub fn new() -> Self {
-        Self {
-            inner: HashMap::new(),
-        }
-    }
-
     impl_deque_push!(push_front);
     impl_deque_push!(push_back);
     impl_deque_pop!(pop_front);

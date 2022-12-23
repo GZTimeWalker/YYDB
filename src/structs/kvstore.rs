@@ -4,6 +4,7 @@ use futures::Future;
 use crate::utils::*;
 
 #[async_trait]
+#[allow(clippy::len_without_is_empty)]
 pub trait AsyncKvStoreRead: Send + 'static + Sized {
     /// Get the value specified by the key
     async fn get(&self, key: Key) -> Result<DataStore>;

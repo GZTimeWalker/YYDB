@@ -138,6 +138,10 @@ impl MemTable {
 
         new_map.into_iter()
     }
+
+    pub async fn to_self_io(&self) -> Result<()> {
+        self.to_io(&self.io).await
+    }
 }
 
 #[async_trait]
@@ -189,10 +193,6 @@ impl AsyncKvStoreWrite for MemTable {
 impl Drop for MemTable {
     fn drop(&mut self) {
         debug!("Save Memtable       : {:?}", self.io.file_path);
-
-        futures::executor::block_on(async move {
-            self.to_io(&self.io).await.unwrap();
-        });
     }
 }
 

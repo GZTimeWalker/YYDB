@@ -38,7 +38,7 @@ impl Manifest {
                 cleanup_files: Vec::new(),
                 tables: AvlTreeMap::new(),
                 bloom_filter: BloomFilter::new_global(),
-                tracker: SSTableTracker::new(),
+                tracker: SSTableTracker::default(),
             })
         })
     }
@@ -93,6 +93,10 @@ impl Manifest {
                 std::fs::remove_file(file).ok();
             }
         }
+    }
+
+    pub async fn to_self_io(&self) -> Result<()> {
+        self.to_io(&self.io).await
     }
 }
 
@@ -244,7 +248,7 @@ impl AsyncFromIO for Manifest {
             tables.insert(key, Arc::new(table));
         }
 
-        let mut tracker = SSTableTracker::new();
+        let mut tracker = SSTableTracker::default();
         for table in tables.values() {
             tracker.push_back(table.clone());
         }
@@ -265,12 +269,7 @@ impl AsyncFromIO for Manifest {
 impl Drop for Manifest {
     fn drop(&mut self) {
         debug!("Save Manifest       : {:?}", self.io.file_path);
-
         self.do_cleanup();
-
-        futures::executor::block_on(async move {
-            self.to_io(&self.io).await.unwrap();
-        });
     }
 }
 

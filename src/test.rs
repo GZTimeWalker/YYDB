@@ -10,13 +10,16 @@ use crate::{
 };
 
 #[test]
-fn it_works() -> Result<()> {
-    crate::core::runtime::block_on(it_works_async()) // ensure use one async runtime
+fn it_works() {
+    crate::core::runtime::block_on(async {
+        it_works_async().await.unwrap();
+        info!("{:=^80}", style(" All Test Passed ").green());
+    }); // ensure use one async runtime
 }
 
 const TEST_SIZE: u64 = 100000;
 const RANDOM_TEST_SIZE: u64 = 200;
-const FLUSH_INTERVAL: Duration = Duration::from_millis(500);
+const FLUSH_INTERVAL: Duration = Duration::from_millis(1000);
 const ITER_COUNT: u64 = TEST_SIZE / 5 * 3;
 
 const DATA_SIZE: usize = 100;
@@ -51,6 +54,8 @@ async fn it_works_async() -> Result<()> {
         .green()
     );
 
+    table.close().await?;
+
     let size_on_disk = table.size_on_disk().await?;
 
     info!(
@@ -59,8 +64,6 @@ async fn it_works_async() -> Result<()> {
     );
 
     assert_eq!(table.get(TEST_SIZE + 20).await?, DataStore::NotFound);
-
-    info!("{:=^80}", style(" All Test Passed ").green());
     Ok(())
 }
 

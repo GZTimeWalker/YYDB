@@ -115,6 +115,13 @@ impl Table {
         self.manifest.read().await.table_files()
     }
 
+    pub async fn close(&self) -> Result<()> {
+        self.end_iter().await;
+        self.memtable.to_self_io().await.ok();
+        self.manifest.read().await.to_self_io().await.ok();
+        Ok(())
+    }
+
     async fn compact(&self) {
         let compactable_tables = self.manifest.read().await.get_compactable_tables();
 
